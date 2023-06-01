@@ -1,12 +1,11 @@
-def gcaa_communicate_single_assignment(gcaa_params, gcaa_data, graph, old_t, T):
-    old_z = []
-    old_y = []
-    old_f = []
-    for n in range(gcaa_params['N']):
-        old_z.append(gcaa_data[n]['winners'])
-        old_y.append(gcaa_data[n]['winnerBids'])
-        old_f.append(gcaa_data[n]['fixedAgents'])
-    
+def gcaa_communicate_single_assignment(GCAA_Params, GCAA_Data, Graph, old_t, T):
+    N = GCAA_Params['N']
+
+    # Initialize and Copy data
+    old_z = [[GCAA_Data[n]['winners'] if k == n else 0 for k in range(N)] for n in range(N)]
+    old_y = [[GCAA_Data[n]['winnerBids'] if k == n else 0 for k in range(N)] for n in range(N)]
+    old_f = [[GCAA_Data[n]['fixedAgents'] if k == n else 0 for k in range(N)] for n in range(N)]
+
     z = old_z.copy()
     y = old_y.copy()
     f = old_f.copy()
@@ -14,23 +13,25 @@ def gcaa_communicate_single_assignment(gcaa_params, gcaa_data, graph, old_t, T):
 
     epsilon = 10e-6
 
-    for i in range(gcaa_params['N']):
-        for k in range(gcaa_params['N']):
-            if graph[k][i] == 1:
+    # Start communication between agents
+    for i in range(N):
+        for k in range(N):
+            if Graph[k][i] == 1:
                 z[i][k] = old_z[k][k]
                 y[i][k] = old_y[k][k]
                 f[i][k] = old_f[k][k]
-
-                for n in range(gcaa_params['N']):
+                # Update timestamps for all agents based on latest comm
+                for n in range(N):
                     if n != i and t[i][n] < old_t[k][n]:
                         t[i][n] = old_t[k][n]
                 t[i][k] = T
 
-    for n in range(gcaa_params['N']):
-        gcaa_data[n]['winners'] = z[n]
-        gcaa_data[n]['winnerBids'] = y[n]
-        gcaa_data[n]['fixedAgents'] = f[n]
+    # Copy data
+    for n in range(N):
+        GCAA_Data[n]['winners'] = z[n]
+        GCAA_Data[n]['winnerBids'] = y[n]
+        GCAA_Data[n]['fixedAgents'] = f[n]
         t[n][n] = T
 
-    return gcaa_data, t
+    return GCAA_Data, t
 

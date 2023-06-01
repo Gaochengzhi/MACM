@@ -1,73 +1,56 @@
 import numpy as np
-from scipy.spatial import ConvexHull
-from shapely.geometry import Polygon
+from scipy.spatial import ConvexHull, Delaunay
 
 def findStrips(x, y, sidelap, imageWidth, imageLength):
-    # Calculating the convex hull of the region of interest
-    points = np.column_stack((x, y))
-    hull = ConvexHull(points)
-
-    # Only consider the points that define the convex hull
-    x = points[hull.vertices, 0]
-    y = points[hull.vertices, 1]
-
-    # Rotating the region to find the scanning angle that uses the minimum number of lines
-    areaWidth = np.max(x) - np.min(x)
+    # Compute the convex hull of the region to be investigated
+    hull = ConvexHull(np.vstack([x, y]).T)
+    # Only the points that define the convex hull matter from this point
+    x, y = x[hull.vertices], y[hull.vertices]
+    # Rotate the region of interest to find the scanning angle that uses the smallest number of lines
+    areaWidth = max(x) - min(x)
     thetamin = 0
-    for i in range(360):
+    for i in range(1, 361):
         theta = i * 2 * np.pi / 360
         R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-        rotated_points = np.dot(R, points.T).T
-        rotated_x = rotated_points[hull.vertices, 0]
-        rotated_y = rotated_points[hull.vertices, 1]
-        rotated_area_width = np.max(rotated_x) - np.min(rotated_x)
-        if rotated_area_width < areaWidth:
-            areaWidth = rotated_area_width
+        aux = R @ np.vstack([x, y])
+        if max(aux[0, :]) - min(aux[0, :]) < areaWidth:
+            areaWidth = max(aux[0, :]) - min(aux[0, :])
             thetamin = theta
-
-    # Rotate the region to the chosen angle
+    # Rotate the region to the angle chosen in the previous step to facilitate subsequent calculations
     R = np.array([[np.cos(thetamin), -np.sin(thetamin)], [np.sin(thetamin), np.cos(thetamin)]])
-    rotated_points = np.dot(R, points.T).T
-    x = rotated_points[hull.vertices, 0]
-    y = rotated_points[hull.vertices, 1]
-
-    areaWidth = np.max(x) - np.min(x)
-    areaLength = np.max(y) - np.min(y)
-    numberOfLanes = int(np.ceil(areaWidth / (imageWidth * (1 - sidelap))))
+    aux = R @ np.vstack([x, y])
+    x, y = aux[0, :], aux[1, :]
+    areaWidth = max(x) - min(x)
+    areaLength = max(y) - min(y)
+    numberOfLanes = np.ceil(areaWidth / (imageWidth * (1 - sidelap)))
     laneDist = areaWidth / numberOfLanes
-    lanemin = np.zeros((numberOfLanes, 2))
-    lanemax = np.zeros((numberOfLanes, 2))
-
-    for i in range(numberOfLanes):
-        xi = np.min(x) + laneDist * i - laneDist / 2
+    lanemin, lanemax = [], []
+    for i in range(int(numberOfLanes)):
+        xi = min(x) + laneDist * (i + 1) - laneDist / 2
         delta = areaLength / imageLength
         k = 0
-        miny = np.min(y) + k * delta
-        while not Polygon(np.column_stack((x, y))).contains(Point(xi, miny)):
-            miny = np.min(y) + k * delta
-            k = k + 1
-
+        miny = min(y) + k * delta
+        # Using Delaunay for inpolygon
+        while not Delaunay(np.vstack([x, y]).T).find_simplex([xi, miny]) >= 0:
+            miny = min(y) + k * delta
+            k += 1
         k = 0
-        maxy = np.max(y) - k * delta
-        while not Polygon(np.column_stack((x, y))).contains(Point(xi, maxy)):
-            maxy = np.max(y) - k * delta
-            k = k + 1
-
-        lanemin[i, :] = [xi, miny]
-        lanemax[i, :] = [xi, maxy]
-
-    lmin = np.dot(R.T, lanemin.T).T
-    lmax = np.dot(R.T, lanemax.T).T
-
-    # Constructing the vertices
-    V = np.zeros((numberOfLanes * 2 + 1, 2))
-    for i in range(numberOfLanes * 2 + 1):
+        maxy = max(y) - k * delta
+        while not Delaunay(np.vstack([x, y]).T).find_simplex([xi, maxy]) >= 0:
+            maxy = max(y) - k * delta
+            k += 1
+        lanemin.append([xi, miny])
+        lanemax.append([xi, maxy])
+    lmin = (R.T @ np.array(lanemin).T).T
+    lmax = (R.T @ np.array(lanemax).T).T
+    # Vertex construction
+    V = np.zeros((int(numberOfLanes * 2 + 1), 2))
+    for i in range(int(numberOfLanes * 2 + 1)):
         if i == 0:
             V[i, :] = [0, 0]
         elif i % 2 == 0:
-            V[i, :] = lmin[i // 2, :]
+            V[i, :] = lmin[i // 2-1, :]
         else:
             V[i, :] = lmax[(i - 1) // 2, :]
-
     return lmin, lmax, V, laneDist
 

@@ -1,4 +1,4 @@
-def gcaa_init(N, M, prob_a_t, lambda_value):
+def GCAA_Init(N, M, prob_a_t, lambda_value):
     GCAA_Params = {}
     
     # Define GCAA Constants

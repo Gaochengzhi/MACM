@@ -1,6 +1,8 @@
 import numpy as np
+from GreedyCoalitionAuctionAlgorithm.GCAA_Init import GCAA_Init
+from GreedyCoalitionAuctionAlgorithm.GCAA_Main import GCAA_Main
 
-def gcaa_solution(Agents, G, TasksCells):
+def  GCAASolution_revised(Agents, G, TasksCells):
     na = Agents['N']
     pos_a = Agents['Pos']
     

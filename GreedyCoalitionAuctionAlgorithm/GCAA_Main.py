@@ -1,23 +1,26 @@
-def gcaa_main(agents, tasks, graph, prob_a_t, lambd):
+from GreedyCoalitionAuctionAlgorithm.GCAA_Init import GCAA_Init
+from GreedyCoalitionAuctionAlgorithm.GCAA_Bundle import gcaa_bundle
+from GreedyCoalitionAuctionAlgorithm.GCAA_Communicate_Single_Assignment import gcaa_communicate_single_assignment
+def GCAA_Main(agents, tasks, graph, prob_a_t, lambd):
     # Initialize GCAA parameters
-    gcaa_params = gcaa_init(len(agents), len(tasks), prob_a_t, lambd)
+    gcaa_params = GCAA_Init(len(agents), len(tasks), prob_a_t, lambd)
     
     gcaa_data = []
     for i, agent in enumerate(agents):
         gcaa_data.append({
-            'agentID': agent.id,
+            'agentID': agent["id"],
             'agentIndex': i,
-            'path': [-1] * agent.Lt,
-            'times': [-1] * agent.Lt,
-            'winners': [0] * gcaa_params.N,
-            'winnerBids': [0] * gcaa_params.N,
-            'fixedAgents': [0] * gcaa_params.N,
-            'Lt': agent.Lt
+            'path': -1 * agent["Lt"],
+            'times': -1 * agent["Lt"],
+            'winners': 0 * gcaa_params["N"],
+            'winnerBids': 0 * gcaa_params["N"],
+            'fixedAgents': 0 * gcaa_params["N"],
+            'Lt': agent["Lt"]
         })
     
     # Fix the tasks if the completion is close
     for i, agent in enumerate(agents):
-        task_idx = agent.previous_task
+        task_idx = agent['previous_task']
         if task_idx != 0 and (tasks[task_idx].tf - tasks[task_idx].tloiter) / tasks[task_idx].tloiter < 1:
             gcaa_data[i]['fixedAgents'][i] = 1
             gcaa_data[i]['path'] = [agent.previous_task]
@@ -25,7 +28,7 @@ def gcaa_main(agents, tasks, graph, prob_a_t, lambd):
             gcaa_data[i]['winnerBids'][i] = agent.previous_winnerBids
     
     T = 0
-    t = [[0] * gcaa_params.N for _ in range(gcaa_params.N)]
+    t = [[0] * gcaa_params['N'] for _ in range(gcaa_params['N'])]
     lastTime = T - 1
     doneFlag = 0
     
@@ -35,7 +38,7 @@ def gcaa_main(agents, tasks, graph, prob_a_t, lambd):
         gcaa_data, t = gcaa_communicate_single_assignment(gcaa_params, gcaa_data, graph, t, T)
         
         # Run GCAA bundle building/updating
-        for n in range(gcaa_params.N):
+        for n in range(gcaa_params['N']):
             if gcaa_data[n]['fixedAgents'][n] == 0:
                 gcaa_data[n], newBid, agents[n] = gcaa_bundle(gcaa_params, gcaa_data[n], agents[n], tasks, n)
         

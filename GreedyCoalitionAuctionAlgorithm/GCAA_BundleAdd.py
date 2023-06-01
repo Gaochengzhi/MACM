@@ -1,3 +1,6 @@
+import numpy as np
+from GreedyCoalitionAuctionAlgorithm.CalcUtility import calc_utility
+
 def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
     if gcaa_data['fixedAgents'][agent_idx - 1] == 1:
         return gcaa_data, agent
@@ -12,25 +15,25 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
     task_value = np.zeros(M)
 
     for j, task in enumerate(tasks):
-        task_pos[j] = [task.x, task.y]
-        task_v[j] = task.Speed
-        task_tf[j] = task.tf
-        task_tloiter[j] = task.tloiter
-        task_radius[j] = task.radius
-        task_type[j] = task.type
-        task_value[j] = task.value
+        task_pos[j] = [task["x"], task["y"]]
+        task_v[j] = task["Speed"]
+        task_tf[j] = task["tf"]
+        task_tloiter[j] = task["tloiter"]
+        task_radius[j] = task["radius"]
+        task_type[j] = task["type"]
+        task_value[j] = task["value"]
 
     U = -1e14
     b = []
 
-    winners_matrix = np.zeros((gcaa_params['N'], gcaa_params['M']))
-    for i, winner in enumerate(gcaa_data['winners']):
+    winners_matrix = np.zeros((gcaa_params["N"], gcaa_params["M"]))
+    for i, winner in enumerate(gcaa_data["winners"]):
         if winner > 0:
             winners_matrix[i][winner - 1] = 1
 
     availTasks = []
-    for j in range(1, gcaa_params['M'] + 1):
-        if j not in gcaa_data['winners']:
+    for j in range(1, gcaa_params["M"] + 1):
+        if j not in gcaa_data["winners"]:
             availTasks.append(j)
 
     if not availTasks:
@@ -43,9 +46,9 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
         if task_tf[j - 1] > task_tloiter[j - 1]:
             b_new = j
 
-            winners_matrix[agent_idx - 1] = np.zeros(gcaa_params['M'])
+            winners_matrix[agent_idx - 1] = np.zeros(gcaa_params["M"])
             winners_matrix[agent_idx - 1][j - 1] = 1
-            rin_t_new, vin_t_new, U_new = calc_utility(agent.pos, agent.v_a, task_pos, task_v, task_type, task_radius, task_tloiter, task_tf, task_value, b_new, agent_idx, gcaa_params['prob_a_t'], gcaa_params['N'], winners_matrix, gcaa_params['lambda'], agent.kdrag)
+            rin_t_new, vin_t_new, U_new = calc_utility([agent["x"],agent["y"]], agent["v_a"], task_pos, task_v, task_type, task_radius, task_tloiter, task_tf, task_value, b_new, agent_idx, gcaa_params["prob_a_t"], gcaa_params["N"], winners_matrix, gcaa_params["lambda"], agent["kdrag"])
 
             if U_new > U:
                 U = U_new
@@ -54,15 +57,15 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
                 vin_t = vin_t_new
                 newRin = True
 
-    gcaa_data['path'].append(b)
-    gcaa_data['winnerBids'][agent_idx - 1] = U
-    gcaa_data['winners'][agent_idx - 1] = b
+    gcaa_data["path"].append(b)
+    gcaa_data["winnerBids"][agent_idx - 1] = U
+    gcaa_data["winners"][agent_idx - 1] = b
 
     if not newRin:
         return gcaa_data, agent
 
-    agent.rin_task = rin_t
-    agent.vin_task = vin_t
+    agent["rin_task"] = rin_t
+    agent["vin_task"] = vin_t
 
     return gcaa_data, agent
 
