@@ -437,8 +437,6 @@ for i in range(na):
 plt.plot(p_task[0, :], p_task[1, :], "k", label="Boundary", linewidth=2)
 plt.title("Stage 2: Static Target Exploration", fontsize=15)
 plt.legend(loc="upper right")
-plt.draw()
-plt.pause(0.001)
 
 # Stage 2: Static Target Exploration
 
@@ -590,14 +588,14 @@ flag_changeTargets = np.ones(nt)
 flag_changeTargets[changeTargets[0] - 1] += 1
 
 
-Agents["Pos"] =pos_a_loop
-Agents["v_a"] =v_a_loop
+Agents["Pos"] = pos_a_loop
+Agents["v_a"] = v_a_loop
 
 pos_t = np.hstack((pos_t, np.arange(1, nt + 1).reshape(-1, 1)))
 Tasks = {
-"r_bar" : r_bar,
-"prob_a_t" : prob_a_t,
-"task_type" : task_type,
+    "r_bar": r_bar,
+    "prob_a_t": prob_a_t,
+    "task_type": task_type,
     "Pos": pos_t,
     "Speed": v_t,
     "N": nt,
@@ -692,7 +690,6 @@ for i_round in range(0, n_rounds):
         )
         plt.plot(p_task[0, :], p_task[1, :], "k", linewidth=2)
 
-
     for i in range(np.size(Tasks_initial["Pos"], 0)):
         plt.text(
             Tasks_initial["Pos"][i, 0] + 100,
@@ -701,13 +698,21 @@ for i_round in range(0, n_rounds):
             fontsize=15,
         )
 
-
     from collections import defaultdict
+
     if flag and nt != 0:
         _, p_GCAA_tmp, taskInd, _, _, Agents = GCAASolution_revised(Agents, G, Tasks)
+        ## last debug here
         assigned_tasks = list(map(int, p_GCAA_tmp))
 
-        Xmed, _, _, _, = OptimalControlSolution_stage2(Agents, Tasks, p_GCAA_tmp, time_step, n_rounds_loop, kdrag)
+        (
+            Xmed,
+            _,
+            _,
+            _,
+        ) = OptimalControlSolution_stage2(
+            Agents, Tasks, p_GCAA_tmp, time_step, n_rounds_loop, kdrag
+        )
         if i_round == 1:
             Xfinal = Xmed
             p_GCAA = list(map(int, taskInd))
@@ -756,10 +761,9 @@ for i_round in range(0, n_rounds):
 
         assigned_tasks = []
 
-    plotMapAllocation_stage2(Xfinal, na, colors, 'Planned Path')
+    plotMapAllocation_stage2(Xfinal, na, colors, "Planned Path")
     plt.legend(legendUnq(plt.gca()))
     plt.draw()
-
 
     # Update position and velocity of each agent
     for i in range(na):
