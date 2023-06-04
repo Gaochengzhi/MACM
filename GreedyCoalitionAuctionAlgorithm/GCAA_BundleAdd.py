@@ -3,7 +3,7 @@ from GreedyCoalitionAuctionAlgorithm.CalcUtility import calc_utility
 
 
 def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
-    if gcaa_data["fixedAgents"][agent_idx - 1] == 1:
+    if gcaa_data["fixedAgents"][agent_idx] == 1:
         return gcaa_data, agent
 
     M = len(tasks)
@@ -33,13 +33,13 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
             winners_matrix[i][winner - 1] = 1
 
     availTasks = []
-    for j in range(1, gcaa_params["M"] + 1):
+    for j in range(gcaa_params["M"]):
         if j not in gcaa_data["winners"]:
             availTasks.append(j)
 
     if not availTasks:
-        availTasks = list(range(1, M + 1))
-        allTasksAssigned = True
+        availTasks = list(range(M))
+        # allTasksAssigned = True
         U = 0
 
     newRin = False
@@ -47,8 +47,8 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
         if task_tf[j - 1] > task_tloiter[j - 1]:
             b_new = j
 
-            winners_matrix[agent_idx - 1] = np.zeros(gcaa_params["M"])
-            winners_matrix[agent_idx - 1][j - 1] = 1
+            winners_matrix[agent_idx] = np.zeros(gcaa_params["M"])
+            winners_matrix[agent_idx][j - 1] = 1
             tmpres = calc_utility(
                 [agent["x"], agent["y"]],
                 agent["v_a"],
@@ -81,8 +81,8 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
                 newRin = True
 
     gcaa_data["path"] = b
-    gcaa_data["winnerBids"][agent_idx - 1] = U
-    gcaa_data["winners"][agent_idx - 1] = b
+    gcaa_data["winnerBids"][agent_idx] = U
+    gcaa_data["winners"][agent_idx] = b
 
     if not newRin:
         return gcaa_data, agent

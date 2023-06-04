@@ -1,19 +1,23 @@
-def gcaa_bundle_remove_single_assignment(gcaa_params, gcaa_data, agent_idx):
-    if sum(gcaa_data['winnerBids']) == 0:
-        return gcaa_data
+import numpy as np
 
-    if gcaa_data['winners'][agent_idx - 1] > 0:
-        all_winners = (gcaa_data['winners'] == gcaa_data['winners'][agent_idx - 1]) * (gcaa_data['fixedAgents'] == 0)
-        if sum(all_winners) > 0:
-            all_winnerBids = gcaa_data['winnerBids'] * all_winners
-            all_winnerBids[all_winnerBids == 0] = -1e16
-            maxBid = max(all_winnerBids)
-            idxMaxBid = all_winnerBids.index(maxBid)
-            all_losers = all_winners
-            all_losers[idxMaxBid] = 0
-            gcaa_data['winners'] = (~all_losers) * gcaa_data['winners']
-            gcaa_data['winnerBids'] = (~all_losers) * gcaa_data['winnerBids']
-            gcaa_data['fixedAgents'][idxMaxBid] = 1
 
-    return gcaa_data
+def gcaa_bundle_remove_single_assignment(GCAA_Params, GCAA_Data, agent_idx):
+    if np.sum(GCAA_Data["winnerBids"]) == 0:
+        return GCAA_Data
 
+    if GCAA_Data["winners"][agent_idx] > 0:
+        All_winners = (GCAA_Data["winners"] == GCAA_Data["winners"][agent_idx]) & (
+            GCAA_Data["fixedAgents"] == 0
+        )
+
+        if np.any(All_winners):
+            All_winnerBids = GCAA_Data["winnerBids"].copy()
+            All_winnerBids[~All_winners] = -1e16
+            idxMaxBid = np.argmax(All_winnerBids)
+            GCAA_Data["winners"][All_winners] = 0
+            GCAA_Data["winnerBids"][All_winners] = 0
+            GCAA_Data["winners"][idxMaxBid] = GCAA_Data["winners"][agent_idx]
+            GCAA_Data["winnerBids"][idxMaxBid] = GCAA_Data["winnerBids"][agent_idx]
+            GCAA_Data["fixedAgents"][idxMaxBid] = 1
+
+    return GCAA_Data

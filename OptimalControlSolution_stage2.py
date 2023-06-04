@@ -1,17 +1,18 @@
 import numpy as np
 
+
 def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kdrag):
-    pos_a = Agents.Pos
-    v_a = Agents.v_a
-    pos_t = Tasks.Pos[:, :2]
-    v_t = Tasks.Speed
-    radius_t = Tasks.radius
-    tf_t = Tasks.tf
-    tloiter_t = Tasks.tloiter
-    na = Agents.N
-    targets_angle = Tasks.angle
-    targets_restCheck = Tasks.restCheck
-    flag_changeTargets = Tasks.flag_changeTargets
+    pos_a = Agents["Pos"]
+    v_a = Agents["v_a"]
+    pos_t = Tasks["Pos"][:, :2]
+    v_t = Tasks["Speed"]
+    radius_t = Tasks["radius"]
+    tf_t = Tasks["tf"]
+    tloiter_t = Tasks["tloiter"]
+    na = Agents["N"]
+    targets_angle = Tasks["angle"]
+    targets_restCheck = Tasks["restCheck"]
+    flag_changeTargets = Tasks["flag_changeTargets"]
 
     pos_t_curr = []
     pos_a_curr = []
@@ -19,7 +20,9 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
     X = np.zeros((4, na, n_rounds + 1))
     J = np.zeros((1, na))
     J_to_completion_target = np.zeros((1, na))
-    A = np.block([[np.zeros((2, 2)), np.eye(2, 2)], [np.zeros((2, 2)), np.zeros((2, 2))]])
+    A = np.block(
+        [[np.zeros((2, 2)), np.eye(2, 2)], [np.zeros((2, 2)), np.zeros((2, 2))]]
+    )
     B = np.block([[np.zeros((2, 2))], [np.eye(2, 2)]])
 
     completed_tasks = []
@@ -28,7 +31,8 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
         v_a[i, :] = np.zeros(v_a[i, :].shape)
         X[:, i, 0] = np.concatenate((pos_a[i, :], v_a[i, :]), axis=None)
 
-        if (len(p_GCAA[i]) == 0) or (p_GCAA[i] == 0):
+        print(p_GCAA[0])
+        if (p_GCAA[i] is None) or (p_GCAA[i] == 0):
             p_GCAA[i] = []
             for k in range(n_rounds):
                 if k == 0:
@@ -38,9 +42,11 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
                     X[:, i, k + 1] = X[:, i, k]
             continue
 
-        for j in range(len(p_GCAA[i])):
+        # for j in range((p_GCAA[i])):
+        for j in range(1):
             k = 0
-            ind_task = p_GCAA[i][j]
+            # ind_task = p_GCAA[i][j]
+            ind_task = p_GCAA[i]
             tf = tf_t[ind_task]
             if j > 0:
                 tf = tf - tf_t[p_GCAA[i][j - 1]]
@@ -53,11 +59,13 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
             J_to_completion_target[i] = J_to_completion_target_curr
             R = radius_t[ind_task]
             norm_vt = 2 * np.pi * R / tloiter_t[ind_task]
-            norm_a = norm_vt ** 2 / R
+            norm_a = norm_vt**2 / R
             exp_angle = targets_angle[ind_task]
 
             if tloiter_t[ind_task] > 0 and tf > 0:
-                J_to_completion_target[i] = J_to_completion_target[i] + 1 / 2 * norm_a ** 2 * min(tloiter_t[ind_task], tf)
+                J_to_completion_target[i] = J_to_completion_target[
+                    i
+                ] + 1 / 2 * norm_a**2 * min(tloiter_t[ind_task], tf)
 
             t = 0
 
@@ -68,7 +76,14 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
             while np.linalg.norm(pos_t_curr - X[0:2, i, k + 1]) > 53:
                 u = 0
                 angle = pos_t_curr - X[0:2, i, k + 1]
-                if np.linalg.norm(pos_t_curr - X[0:2, i, k + 1]) < R + 3 and abs(np.rad2deg(np.arctan2(angle[1, 0], angle[0, 0])) - (exp_angle - 180)) < 5:
+                if (
+                    np.linalg.norm(pos_t_curr - X[0:2, i, k + 1]) < R + 3
+                    and abs(
+                        np.rad2deg(np.arctan2(angle[1, 0], angle[0, 0]))
+                        - (exp_angle - 180)
+                    )
+                    < 5
+                ):
                     r_target_circle = pos_t_curr - X[0:2, i, k + 1]
                     d = np.linalg.norm(r_target_circle)
                     curr_velocity = np.zeros(X[:, i, k + 1].shape)
@@ -96,35 +111,47 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
                 Xfinal[i] = tmp
             elif flag_changeTargets[ind_task] > 1 and targets_restCheck[ind_task] <= 1:
                 len = k + 1 - tmp + 1
-                Xtmp = X[:, i, tmp:k + 1]
+                Xtmp = X[:, i, tmp : k + 1]
                 Xtmp1 = np.flip(Xtmp[:, :, :-1], axis=2)
-                X[:, i, k + 2:k + 2 + len - 2] = Xtmp1
+                X[:, i, k + 2 : k + 2 + len - 2] = Xtmp1
 
                 tmp = X[:, i, :]
                 tmp = np.delete(tmp, np.where(~tmp.any(axis=0))[0], axis=1)
                 Xfinal[i] = tmp
             elif flag_changeTargets[ind_task] <= 1 and targets_restCheck[ind_task] > 1:
                 len = k + 1 - tmp + 1
-                Xtmp = X[:, i, tmp:k + 1]
+                Xtmp = X[:, i, tmp : k + 1]
                 Xtmp1 = np.flip(Xtmp[:, :, :-1], axis=2)
                 Xtmp2 = np.concatenate((Xtmp1, Xtmp[:, :, 1:]), axis=2)
                 Xtmp3 = np.tile(Xtmp2, (1, 1, targets_restCheck[ind_task] - 1))
-                X[:, i, k + 2:k + 1 + (targets_restCheck[ind_task] - 1) * (2 * len - 2)] = Xtmp3
+                X[
+                    :,
+                    i,
+                    k + 2 : k + 1 + (targets_restCheck[ind_task] - 1) * (2 * len - 2),
+                ] = Xtmp3
 
                 tmp = X[:, i, :]
                 tmp = np.delete(tmp, np.where(~tmp.any(axis=0))[0], axis=1)
                 Xfinal[i] = tmp
             elif flag_changeTargets[ind_task] > 1 and targets_restCheck[ind_task] > 1:
                 len = k + 1 - tmp + 1
-                Xtmp = X[:, i, tmp:k + 1]
+                Xtmp = X[:, i, tmp : k + 1]
                 Xtmp1 = np.flip(Xtmp[:, :, :-1], axis=2)
                 Xtmp2 = np.concatenate((Xtmp1, Xtmp[:, :, 1:]), axis=2)
                 Xtmp3 = np.tile(Xtmp2, (1, 1, targets_restCheck[ind_task] - 1))
-                X[:, i, k + 2:k + 1 + (targets_restCheck[ind_task] - 1) * (2 * len - 2) + len - 1] = np.concatenate((Xtmp3, Xtmp1), axis=2)
+                X[
+                    :,
+                    i,
+                    k
+                    + 2 : k
+                    + 1
+                    + (targets_restCheck[ind_task] - 1) * (2 * len - 2)
+                    + len
+                    - 1,
+                ] = np.concatenate((Xtmp3, Xtmp1), axis=2)
 
                 tmp = X[:, i, :]
                 tmp = np.delete(tmp, np.where(~tmp.any(axis=0))[0], axis=1)
                 Xfinal[i] = tmp
 
     return Xfinal, completed_tasks, J, J_to_completion_target
-

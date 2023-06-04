@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 from matlibPy.lla_to_ecef import lla2ecef
 from findStrips import findStrips
 from OptimalControlSolution_stage1 import OptimalControlSolution_stage1
+from OptimalControlSolution_stage2 import OptimalControlSolution_stage2
 from plotMapAllocation_stage1 import plotMapAllocation_stage1
+from plotMapAllocation_stage2 import plotMapAllocation_stage2
 from PlotTaskLoitering import PlotTaskLoitering
 from GreedyCoalitionAuctionAlgorithm.GCAASolution_revised import GCAASolution_revised
 
@@ -704,6 +706,8 @@ for i_round in range(0, n_rounds):
         _, p_GCAA_tmp, taskInd, _, _, Agents = GCAASolution_revised(Agents, G, Tasks)
         ## last debug here
         assigned_tasks = list(map(int, p_GCAA_tmp))
+        print(assigned_tasks)
+        # exit()
 
         (
             Xmed,
@@ -745,19 +749,19 @@ for i_round in range(0, n_rounds):
         tloiter_t = tloiter_t[keep_tasks, :]
         radius_t = radius_t[keep_tasks, :]
         radius_t_2 = radius_t_2[keep_tasks, :]
-        Tasks.r_bar = Tasks.r_bar[keep_tasks, :]
-        Tasks.prob_a_t = Tasks.prob_a_t[:, keep_tasks]
-        Tasks.Pos = pos_t
-        Tasks.Speed = v_t
-        Tasks.N = nt
-        Tasks.tf = tf_t_loop
-        Tasks.lambda_ = lambda_
-        Tasks.task_type = task_type
-        Tasks.tloiter = tloiter_t
-        Tasks.radius = radius_t
-        Tasks.angle = Tasks.angle[keep_tasks]
-        Tasks.restCheck = Tasks.restCheck[keep_tasks]
-        Tasks.flag_changeTargets = Tasks.flag_changeTargets[keep_tasks]
+        Tasks["r_bar"] = Tasks["r_bar"][keep_tasks, :]
+        Tasks["prob_a_t"] = Tasks["prob_a_t"][:, keep_tasks]
+        Tasks["Pos"] = pos_t
+        Tasks["Speed"] = v_t
+        Tasks["N"] = nt
+        Tasks["tf"] = tf_t_loop
+        Tasks["lambda_"] = lambda_
+        Tasks["task_type"] = task_type
+        Tasks["tloiter"] = tloiter_t
+        Tasks["radius"] = radius_t
+        Tasks["angle"] = Tasks["angle"][keep_tasks]
+        Tasks["restCheck"] = Tasks["restCheck"][keep_tasks]
+        Tasks["flag_changeTargets"] = Tasks["flag_changeTargets"][keep_tasks]
 
         assigned_tasks = []
 

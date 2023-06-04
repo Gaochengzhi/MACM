@@ -1,6 +1,8 @@
 import numpy as np
 from GreedyCoalitionAuctionAlgorithm.GCAA_Init import GCAA_Init
 from GreedyCoalitionAuctionAlgorithm.GCAA_Main import GCAA_Main
+from WinnerVectorToMatrix import WinnerVectorToMatrix
+from GreedyCoalitionAuctionAlgorithm.CalcTaskUtility import calc_task_utility
 
 
 def GCAASolution_revised(Agents, G, TasksCells):
@@ -14,10 +16,8 @@ def GCAASolution_revised(Agents, G, TasksCells):
 
     # Initialize GCAA parameters
     GCAA_Params = GCAA_Init(0, 0, TasksCells["prob_a_t"], TasksCells["lambda"])
+    # ok
 
-    # Define agents and tasks
-
-    # Define agent default fields
     agent_default = {
         "id": 0,
         "type": 0,
@@ -104,6 +104,7 @@ def GCAASolution_revised(Agents, G, TasksCells):
     GCAA_Assignments, S_GCAA_agents, S_GCAA_ALL_agents, agents = GCAA_Main(
         agents, tasks, G, TasksCells["prob_a_t"], TasksCells["lambda"]
     )
+    # print("GCAA_Assignments:", GCAA_Assignments)
 
     # Extract assignment paths
     p = []
@@ -115,12 +116,13 @@ def GCAASolution_revised(Agents, G, TasksCells):
 
         p.append(path)
 
+    # print("GCAASolution_revised:", p)
     # Extract winners and convert to winner matrix
     winners = np.zeros(na)
     for i in range(na):
-        if len(p[i]) > 0:
-            winners[i] = p[i][0]
-    winners_matrix = winner_vector_to_matrix(na, nt, winners)
+        if p[i] > 0:
+            winners[i] = p[i]
+    winners_matrix = WinnerVectorToMatrix(na, nt, winners)
 
     # Calculate scores and rewards
     S_GCAA_ALL = np.zeros(nt)
@@ -149,11 +151,12 @@ def GCAASolution_revised(Agents, G, TasksCells):
     # Fix tasks if completion is close
     for i in range(na):
         task_idx = p[i]
-        if len(task_idx) == 0:
+        # if len(task_idx) == 0:
+        if not task_idx:
             Agents["previous_task"][i] = 0
             Agents["previous_winnerBids"][i] = 0
         else:
-            task_idx = task_idx[0]
+            # task_idx = task_idx[0]
             if (
                 tasks[task_idx]["tloiter"] > 0
                 and (tasks[task_idx]["tf"] - tasks[task_idx]["tloiter"])
@@ -167,13 +170,11 @@ def GCAASolution_revised(Agents, G, TasksCells):
                 Agents["previous_winnerBids"][i] = S_GCAA_ALL_agents[i]
 
     # Extract rin_task and vin_task
-    rin_task = np.zeros((na, nt))
-    vin_task = np.zeros((na, nt))
     for i in range(na):
-        rin_task[i] = agents[i]["rin_task"]
-        vin_task[i] = agents[i]["vin_task"]
+        if len(agents[i]["rin_task"]) > 0:
+            Agents["rin_task"][i, :] = agents[i]["rin_task"]
+            Agents["vin_task"][i, :] = agents[i]["vin_task"]
 
-    tmp = np.concatenate(p)
+    tmp = np.hstack(p)
     taskInd = TasksCells["Pos"][tmp, 2]
-
     return S_GCAA, p, taskInd, S_GCAA_ALL, rt, Agents

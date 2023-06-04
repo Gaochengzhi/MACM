@@ -68,7 +68,6 @@ def GCAA_Main(agents, tasks, graph, prob_a_t, lambd):
                 doneFlag = 0
                 break
 
-        # Convergence Check
         if T - lastTime > gcaa_params["N"]:
             doneFlag = 1
         elif T - lastTime > 2 * gcaa_params["N"]:
