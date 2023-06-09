@@ -15,7 +15,6 @@ def calc_task_utility(
     lambda_val,
     kdrag,
 ):
-    j = j - 1
     prod_all = np.prod(1 - winners[:, j] * prob_a_t[:, j])
     rt = task_value * (1 - prod_all)
 

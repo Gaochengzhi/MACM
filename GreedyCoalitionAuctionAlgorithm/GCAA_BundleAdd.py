@@ -2,44 +2,38 @@ import numpy as np
 from GreedyCoalitionAuctionAlgorithm.CalcUtility import calc_utility
 
 
-def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
-    if gcaa_data["fixedAgents"][agent_idx] == 1:
-        return gcaa_data, agent
+def gcaa_bundle_add(GCAA_Params, GCAA_Data, agent, tasks, agent_idx):
+    if GCAA_Data["fixedAgents"][agent_idx] == 1:
+        return GCAA_Data, agent
 
+    rin_t = None
+    vin_t = None
     M = len(tasks)
-    task_pos = np.zeros((M, 2))
-    task_v = np.zeros((M, 2))
-    task_tf = np.zeros(M)
-    task_tloiter = np.zeros(M)
-    task_radius = np.zeros(M)
-    task_type = np.zeros(M)
-    task_value = np.zeros(M)
-
-    for j, task in enumerate(tasks):
-        task_pos[j] = [task["x"], task["y"]]
-        task_v[j] = task["Speed"]
-        task_tf[j] = task["tf"]
-        task_tloiter[j] = task["tloiter"]
-        task_radius[j] = task["radius"]
-        task_type[j] = task["type"]
-        task_value[j] = task["value"]
+    task_pos = [[task["x"], task["y"]] for task in tasks]
+    task_v = [task["Speed"] for task in tasks]
+    task_tf = [task["tf"] for task in tasks]
+    task_tloiter = [task["tloiter"] for task in tasks]
+    task_radius = [task["radius"] for task in tasks]
+    task_type = [task["type"] for task in tasks]
+    task_value = [task["value"] for task in tasks]
 
     U = -1e14
     b = []
 
-    winners_matrix = np.zeros((gcaa_params["N"], gcaa_params["M"]))
-    for i, winner in enumerate(gcaa_data["winners"]):
-        if winner > 0:
-            winners_matrix[i][winner - 1] = 1
+    winners_matrix = [[0] * GCAA_Params["M"] for _ in range(GCAA_Params["N"])]
+    for i in range(GCAA_Params["N"]):
+        if GCAA_Data["winners"][i] > 0:
+            winners_matrix[i][GCAA_Data["winners"][i]] = 1
 
-    availTasks = []
-    for j in range(gcaa_params["M"]):
-        if j not in gcaa_data["winners"]:
-            availTasks.append(j)
+    # Only pick a task that is not assigned yet
+    availTasks = [
+        j for j in range(1, GCAA_Params["M"] + 1) if j not in GCAA_Data["winners"]
+    ]
 
+    # If all tasks are assigned, pick any task with positive utility
     if not availTasks:
-        availTasks = list(range(M))
-        # allTasksAssigned = True
+        availTasks = list(range(1, M + 1))
+        allTasksAssigned = True
         U = 0
 
     newRin = False
@@ -47,9 +41,9 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
         if task_tf[j - 1] > task_tloiter[j - 1]:
             b_new = j
 
-            winners_matrix[agent_idx] = np.zeros(gcaa_params["M"])
+            winners_matrix[agent_idx][:] = [0] * GCAA_Params["M"]
             winners_matrix[agent_idx][j - 1] = 1
-            tmpres = calc_utility(
+            rin_t_new, vin_t_new, U_new = calc_utility(
                 [agent["x"], agent["y"]],
                 agent["v_a"],
                 task_pos,
@@ -61,18 +55,13 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
                 task_value,
                 b_new,
                 agent_idx,
-                gcaa_params["prob_a_t"],
-                gcaa_params["N"],
+                GCAA_Params["prob_a_t"],
+                GCAA_Params["N"],
                 winners_matrix,
-                gcaa_params["lambda"],
+                GCAA_Params["lambda"],
                 agent["kdrag"],
             )
 
-            # if tmpres is None:
-            #     break
-            rin_t_new = tmpres[0]
-            vin_t_new = tmpres[1]
-            U_new = tmpres[2]
             if U_new > U:
                 U = U_new
                 b = b_new
@@ -80,14 +69,14 @@ def gcaa_bundle_add(gcaa_params, gcaa_data, agent, tasks, agent_idx):
                 vin_t = vin_t_new
                 newRin = True
 
-    gcaa_data["path"] = b
-    gcaa_data["winnerBids"][agent_idx] = U
-    gcaa_data["winners"][agent_idx] = b
+    GCAA_Data["path"] = b
+    GCAA_Data["winnerBids"][agent_idx] = U
+    if not b:
+        b = 0
+    GCAA_Data["winners"][agent_idx] = b
 
-    if not newRin:
-        return gcaa_data, agent
+    if newRin:
+        agent["rin_task"] = rin_t
+        agent["vin_task"] = vin_t
 
-    agent["rin_task"] = rin_t
-    agent["vin_task"] = vin_t
-
-    return gcaa_data, agent
+    return GCAA_Data, agent

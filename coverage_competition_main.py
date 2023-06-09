@@ -172,6 +172,37 @@ pos_t_initial = pos_waypoints
 
 kdrag = 3 / simu_time
 
+
+def remove_completed_tasks(pos_t, ind):
+    pos_t_new = np.delete(pos_t, ind, axis=0)
+    return pos_t_new
+
+
+def update_path(p, pos_a, pos_t, time_step, Agents, nt):
+    ind_completed_tasks = []
+
+    for i in range(pos_a.shape[0]):
+        if len(p[i]) != 0:
+            d_a_t = pos_t[p[i][0]] - pos_a[i]
+            if np.linalg.norm(d_a_t) < time_step * Agents["Speed"][i]:
+                pos_a[i] = pos_t[p[i][0]]
+                nt -= 1
+                Agents["Lt"][i] -= 1
+                ind_completed_tasks.append(p[i][0])
+
+                p[i] = p[i][1:]
+                # if len(p[i]) != 0:
+                #     time_step_remaining = time_step - np.linalg.norm(d_a_t) / Agents['Speed'][i]
+                #     d_a_next_t = pos_t[p[i][0]] - pos_a[i]
+                #     pos_a[i] += d_a_next_t / np.linalg.norm(d_a_next_t) * time_step_remaining * Agents['Speed'][i]
+            else:
+                pos_a[i] += (
+                    d_a_t / np.linalg.norm(d_a_t) * time_step * Agents["Speed"][i]
+                )
+
+    return p, pos_a, ind_completed_tasks, nt, Agents
+
+
 if uniform_agents:
     v_a = np.zeros((na, 2))
 else:
@@ -543,9 +574,10 @@ else:
 r_bar[task_type == 1] = 5 * r_bar[task_type == 1]
 
 prob_a_t = 0.7 * np.ones((na, nt))
-if not uniform_agents:
+if uniform_agents:
+    prob_a_t = 0.7 * np.ones((na, nt))
+else:
     prob_a_t = np.random.rand(na, nt)
-
 
 Agents = {}
 Agents["N"] = na
@@ -620,17 +652,17 @@ Xfinal = [None] * na
 Tasks_initial = Tasks.copy()
 completed_tasks_Store = []
 
-plt.figure()
-plt.xlim([0, map_width])
-plt.ylim([0, map_width])
-plt.xlabel("x [m]")
-plt.ylabel("y [m]")
-plt.title("Stage 2: Static Target Exploration", fontsize=15)
 
 for i_round in range(0, n_rounds):
     completed_tasks_round = []
     # Initial Plot Code here
     plt.clf()
+    plt.figure()
+    plt.xlim([0, map_width])
+    plt.ylim([0, map_width])
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    plt.title("Stage 2: Static Target Exploration", fontsize=15)
     for i in range(na):
         if i == 0:
             plt.plot(
@@ -696,18 +728,16 @@ for i_round in range(0, n_rounds):
         plt.text(
             Tasks_initial["Pos"][i, 0] + 100,
             Tasks_initial["Pos"][i, 1] + 100,
-            str(Tasks_initial["Pos"][i, 2]),
+            str(int(Tasks_initial["Pos"][i, 2])),
             fontsize=15,
         )
 
-    from collections import defaultdict
-
     if flag and nt != 0:
         _, p_GCAA_tmp, taskInd, _, _, Agents = GCAASolution_revised(Agents, G, Tasks)
+
         ## last debug here
+
         assigned_tasks = list(map(int, p_GCAA_tmp))
-        print(assigned_tasks)
-        # exit()
 
         (
             Xmed,
@@ -717,6 +747,7 @@ for i_round in range(0, n_rounds):
         ) = OptimalControlSolution_stage2(
             Agents, Tasks, p_GCAA_tmp, time_step, n_rounds_loop, kdrag
         )
+
         if i_round == 1:
             Xfinal = Xmed
             p_GCAA = list(map(int, taskInd))
@@ -755,7 +786,7 @@ for i_round in range(0, n_rounds):
         Tasks["Speed"] = v_t
         Tasks["N"] = nt
         Tasks["tf"] = tf_t_loop
-        Tasks["lambda_"] = lambda_
+        Tasks["lambda_"] = lambda_val
         Tasks["task_type"] = task_type
         Tasks["tloiter"] = tloiter_t
         Tasks["radius"] = radius_t
@@ -824,33 +855,3 @@ plt.plot(p_task[0, :], p_task[1, :], "k", label="Boundary", linewidth=2)
 plt.legend(loc="upper right")
 plt.draw()
 plt.pause(0.001)
-
-
-def remove_completed_tasks(pos_t, ind):
-    pos_t_new = np.delete(pos_t, ind, axis=0)
-    return pos_t_new
-
-
-def update_path(p, pos_a, pos_t, time_step, Agents, nt):
-    ind_completed_tasks = []
-
-    for i in range(pos_a.shape[0]):
-        if len(p[i]) != 0:
-            d_a_t = pos_t[p[i][0]] - pos_a[i]
-            if np.linalg.norm(d_a_t) < time_step * Agents["Speed"][i]:
-                pos_a[i] = pos_t[p[i][0]]
-                nt -= 1
-                Agents["Lt"][i] -= 1
-                ind_completed_tasks.append(p[i][0])
-
-                p[i] = p[i][1:]
-                # if len(p[i]) != 0:
-                #     time_step_remaining = time_step - np.linalg.norm(d_a_t) / Agents['Speed'][i]
-                #     d_a_next_t = pos_t[p[i][0]] - pos_a[i]
-                #     pos_a[i] += d_a_next_t / np.linalg.norm(d_a_next_t) * time_step_remaining * Agents['Speed'][i]
-            else:
-                pos_a[i] += (
-                    d_a_t / np.linalg.norm(d_a_t) * time_step * Agents["Speed"][i]
-                )
-
-    return p, pos_a, ind_completed_tasks, nt, Agents
