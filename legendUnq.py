@@ -1,7 +1,8 @@
-def legendUnq(h=None, sortType=None):
+
     import matlab
     from matlab import matlabroot
     import numpy as np
+def legendUnq(h=None, sortType=None):
     
     def getLegendChildren(x):
         if useOldMethod:

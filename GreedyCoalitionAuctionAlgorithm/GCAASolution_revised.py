@@ -66,6 +66,7 @@ def GCAASolution_revised(Agents, G, TasksCells):
         if ind:
             p[i] = p[i][: ind[0]]
 
+    print("p: ", p)
     winners = np.zeros(na)
     for i in range(na):
         if p[i]:
@@ -119,6 +120,5 @@ def GCAASolution_revised(Agents, G, TasksCells):
 
     tmp = np.hstack(p)
     taskInd = TasksCells["Pos"][tmp - 1, 2]
-    print(taskInd)
 
     return S_GCAA, p, taskInd, S_GCAA_ALL, rt, Agents

@@ -76,7 +76,6 @@ def calc_utility(
     old_tf = 0
 
     # No assignment if same end time for two tasks in the sequence
-    # print(task_tf[b])
     # if len(set(task_tf[b])) != len(task_tf[b]):
     #     return None, None, None
 

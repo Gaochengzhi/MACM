@@ -23,9 +23,9 @@ def GCAA_Main(agents, tasks, graph, prob_a_t, lambd):
         GCAA_Data.append(agent_data)
 
     for i in range(GCAA_Params["N"]):
-        task_idx = agents[i]["previous_task"]
+        task_idx = int(agents[i]["previous_task"]) - 1
         if (
-            task_idx != 0
+            task_idx != -1
             and (tasks[task_idx]["tf"] - tasks[task_idx]["tloiter"])
             / tasks[task_idx]["tloiter"]
             < 1
@@ -46,7 +46,7 @@ def GCAA_Main(agents, tasks, graph, prob_a_t, lambd):
         )
         for n in range(GCAA_Params["N"]):
             if GCAA_Data[n]["fixedAgents"][n] == 0:
-                GCAA_Data[n], newBid, agents[n] = gcaa_bundle(
+                GCAA_Data[n], _, agents[n] = gcaa_bundle(
                     GCAA_Params, GCAA_Data[n], agents[n], tasks, n
                 )
 

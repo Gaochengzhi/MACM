@@ -22,7 +22,7 @@ def gcaa_bundle_add(GCAA_Params, GCAA_Data, agent, tasks, agent_idx):
 
     winners_matrix = [[0] * GCAA_Params["M"] for _ in range(GCAA_Params["N"])]
     for i in range(GCAA_Params["N"]):
-        if GCAA_Data["winners"][i] > 0:
+        if GCAA_Data["winners"][i] > 0 and GCAA_Data["winners"][i] < GCAA_Params["M"]:
             winners_matrix[i][GCAA_Data["winners"][i]] = 1
 
     # Only pick a task that is not assigned yet
