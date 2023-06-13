@@ -34,6 +34,8 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
         tmp = 0
         v_a[i, :] = np.zeros_like(v_a[i, :])
         X[:, i, 0] = np.concatenate([pos_a[i, :], v_a[i, :]], axis=0)
+        if i >= len(p_GCAA):
+            break
         if not p_GCAA[i] or p_GCAA[i] == 0:
             p_GCAA[i] = []
             for k in range(X.shape[2] - 2):
@@ -63,10 +65,7 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
             R = radius_t[ind_task]
             norm_vt = 2 * np.pi * R / tloiter_t[ind_task]
             norm_a = norm_vt**2 / R
-            if ind_task >= len(targets_angle):
-                exp_angle = targets_angle[ind_task - 1]
-            else:
-                exp_angle = targets_angle[ind_task]
+            exp_angle = targets_angle[ind_task - 1]
 
             if tloiter_t[ind_task] > 0 and tf > 0:
                 J_to_completion_target[i] += (
@@ -117,7 +116,7 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
         if np.linalg.norm(pos_t_curr - pos_a_curr) <= 53:
             completed_tasks.append(p_GCAA[i])
         if flag_changeTargets[ind_task] <= 1 and targets_restCheck[ind_task] <= 1:
-            tmp = np.copy(X[:, :, i])
+            tmp = np.copy(X[:, i, :])
             # tmp = tmp[:, ~np.all(tmp == 0.0, axis=0)]
             trimmed_tmp = remove_consecutive_zeros(tmp)
             Xfinal[i] = trimmed_tmp
@@ -125,24 +124,27 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
             lengTh = k - tmp + 1
             Xtmp = X[:, i, tmp:k]
             Xtmp = np.expand_dims(Xtmp, axis=1)
-            Xtmp1 = np.flip(Xtmp[:, :, : lengTh - 1], axis=2)
-            X[:, i, k : k + 1 + lengTh - 2] = Xtmp1[:, 0, :]
-            tmp = np.copy(X[:, :, i])
-            tmp = tmp[:, ~np.all(tmp == 0.0, axis=0)]
+            Xtmp1 = np.flip(Xtmp[:, :, :-1], axis=2)
+            X[:, i, k : k + lengTh - 2] = Xtmp1[:, 0, :]
+            tmp = np.copy(X[:, i, :])
+            # tmp = tmp[:, ~np.all(tmp == 0.0, axis=0)]
             trimmed_tmp = remove_consecutive_zeros(tmp)
             Xfinal[i] = trimmed_tmp
         elif flag_changeTargets[ind_task] <= 1 and targets_restCheck[ind_task] > 1:
             lengTh = k - tmp + 1
-            Xtmp = X[:, i, tmp - 1 : k]
+            Xtmp = X[:, i, tmp:k]
             Xtmp = np.expand_dims(Xtmp, axis=1)
-            Xtmp1 = np.flip(Xtmp[:, :, :lengTh], axis=2)
-            Xtmp2 = np.concatenate((Xtmp1, Xtmp[:, :, 1:lengTh]), axis=2)
+            Xtmp1 = np.flip(Xtmp[:, :, :-1], axis=2)
+            Xtmp2 = np.concatenate((Xtmp1, Xtmp[:, :, :-1]), axis=2)
             Xtmp3 = np.tile(Xtmp2, (1, 1, targets_restCheck[ind_task] - 1))
             Xtmp3 = np.squeeze(Xtmp3)
             X[
                 :,
                 i,
-                k + 1 : k + 1 + (targets_restCheck[ind_task] - 1) * (2 * lengTh - 1),
+                k
+                + 1 : k
+                + 1
+                + (targets_restCheck[ind_task] - 1) * (2 * (lengTh - 1) - 2),
             ] = Xtmp3
             tmp = np.copy(X[:, i, :])
             # tmp = tmp[:, ~np.all(tmp == 0.0, axis=0)]
@@ -152,12 +154,11 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
             lengTh = k - tmp + 1
             Xtmp = X[:, i, tmp - 1 : k]
             Xtmp = np.expand_dims(Xtmp, axis=1)
-            Xtmp1 = np.flip(Xtmp[:, :, : lengTh - 1], axis=2)
-            Xtmp2 = np.concatenate((Xtmp1, Xtmp[:, :, 1:lengTh]), axis=2)
+            Xtmp1 = np.flip(Xtmp[:, :, :-1], axis=2)
+            Xtmp2 = np.concatenate((Xtmp1, Xtmp[:, :, :-1]), axis=2)
             Xtmp3 = np.tile(Xtmp2, (1, 1, targets_restCheck[ind_task] - 1))
             Xtmp4 = np.concatenate((Xtmp3, Xtmp1), axis=2)
             Xtmp4 = np.squeeze(Xtmp4)
-
             X[
                 :,
                 i,
@@ -169,7 +170,7 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
                 - 1,
             ] = Xtmp4
 
-            tmp = np.copy(X[:, :, i])
+            tmp = np.copy(X[:, i, :])
             trimmed_tmp = remove_consecutive_zeros(tmp)
             Xfinal[i] = trimmed_tmp
 

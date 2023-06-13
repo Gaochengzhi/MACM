@@ -452,28 +452,28 @@ plt.xlim([0, map_width])
 plt.ylim([0, map_width])
 plt.xlabel("x [m]")
 plt.ylabel("y [m]")
-for i in range(na):
-    if i == 0:
-        plt.plot(
-            pos_a_loop[i, 0],
-            pos_a_loop[i, 1],
-            "*",
-            color=colors[i],
-            markersize=10,
-            label="Agents",
-        )
-    else:
-        plt.plot(
-            pos_a_loop[i, 0],
-            pos_a_loop[i, 1],
-            "*",
-            color=colors[i],
-            markersize=10,
-        )
+# for i in range(na):
+#     if i == 0:
+#         plt.plot(
+#             pos_a_loop[i, 0],
+#             pos_a_loop[i, 1],
+#             "*",
+#             color=colors[i],
+#             markersize=10,
+#             label="Agents",
+#         )
+#     else:
+#         plt.plot(
+#             pos_a_loop[i, 0],
+#             pos_a_loop[i, 1],
+#             "*",
+#             color=colors[i],
+#             markersize=10,
+#         )
 
 plt.plot(p_task[0, :], p_task[1, :], "k", label="Boundary", linewidth=2)
-plt.title("Stage 2: Static Target Exploration", fontsize=15)
-plt.legend(loc="upper right")
+# plt.title("Stage 2: Static Target Exploration", fontsize=15)
+# plt.legend(loc="upper right")
 
 # Stage 2: Static Target Exploration
 
@@ -522,9 +522,9 @@ changeTargets = np.array(
 )
 
 max_index = np.max(changeTargets[0])
-targets_restCheck.resize(
-    max_index
-)  # Resize targets_restCheck array to match maximum index value
+# targets_restCheck.resize(
+#     max_index
+# )  # Resize targets_restCheck array to match maximum index value
 
 targets_restCheck[changeTargets[0] - 1] = changeTargets[3]
 
@@ -736,8 +736,8 @@ for i_round in range(0, n_rounds):
             fontsize=15,
         )
 
-    if flag and nt != 0:
-        _, p_GCAA_tmp, taskInd, _, _, Agents = GCAASolution_revised(Agents, G, Tasks)
+    if flag != 0 and nt != 0:
+        p_GCAA_tmp, taskInd, Agents = GCAASolution_revised(Agents, G, Tasks)
         assigned_tasks = list(map(int, p_GCAA_tmp))
         (
             Xmed,
@@ -753,6 +753,7 @@ for i_round in range(0, n_rounds):
             p_GCAA = list(map(int, taskInd))
         else:
             mm = 1
+            Xmed = [i for i in Xmed if i is not None]
             for j in range(len(Xmed)):
                 Xfinal[completed_agents[j]] = Xmed[j]
                 if not p_GCAA_tmp[j]:
@@ -770,7 +771,8 @@ for i_round in range(0, n_rounds):
         # Indices of tasks to keep
         keep_tasks = [i for i in range(nt) if i not in assigned_tasks]
 
-        assigned_tasks1 = [x - 1 for x in assigned_tasks]
+        assigned_tasks1 = assigned_tasks.copy()
+        assigned_tasks1 = [i - 1 for i in assigned_tasks1]
         pos_t = np.delete(pos_t, assigned_tasks1, axis=0)
         v_t = np.delete(v_t, assigned_tasks1, axis=0)
         nt -= len(assigned_tasks)
@@ -808,15 +810,15 @@ for i_round in range(0, n_rounds):
     # Update position and velocity of each agent
     for i in range(na):
         if Xfinal[i] is None or len(Xfinal[i][0]) == 0:
-            tmp = int(p_GCAA[i] - 1)
+            tmp = int(p_GCAA[i])
             if tmp not in completed_tasks_Store and tmp:
                 completed_agents.append(i)
-                completed_tasks_round.append(tmp)
+                completed_tasks_round.append(tmp - 1)
                 flag = 1
-                if int(flag_changeTargets[tmp]) == 0:
+                if int(flag_changeTargets[tmp - 1]) == 0:
                     completed_tasks_Store.append(tmp)
         else:
-            if Xfinal[i] == []:
+            if len(Xfinal[i]) == 0:
                 break
             pos_a_loop[i] = Xfinal[i][0:2, 0]
             v_a_loop[i] = Xfinal[i][2:4, 0]
@@ -835,11 +837,15 @@ for i_round in range(0, n_rounds):
         tmp1 = Tasks_initial["Pos"][:, 2]
         ind1 = [i for i, j in enumerate(tmp1) if j in completed_tasks_round]
         for j in range(len(ind1)):
-            if ind1[j] != 0 and flag_changeTargets[completed_tasks_round[j]] == 0:
-                pos_t_tmp = np.delete(Tasks_initial["Pos"], ind1[j], axis=0)
-                radius_t_tmp = np.delete(Tasks_initial["radius"], ind1[j], axis=0)
-                radius_t_2_tmp = np.delete(Tasks_initial["radius_t_2"], ind1[j], axis=0)
-                task_type1_tmp = np.delete(Tasks_initial["task_type1"], ind1[j], axis=0)
+            if ind1[j] != -1 and flag_changeTargets[completed_tasks_round[j]] == 0:
+                pos_t_tmp = np.delete(Tasks_initial["Pos"], ind1[j] + 1, axis=0)
+                radius_t_tmp = np.delete(Tasks_initial["radius"], ind1[j] + 1, axis=0)
+                radius_t_2_tmp = np.delete(
+                    Tasks_initial["radius_t_2"], ind1[j] + 1, axis=0
+                )
+                task_type1_tmp = np.delete(
+                    Tasks_initial["task_type1"], ind1[j] + 1, axis=0
+                )
                 Tasks_initial["Pos"] = pos_t_tmp
                 Tasks_initial["radius"] = radius_t_tmp
                 Tasks_initial["radius_t_2"] = radius_t_2_tmp
@@ -847,8 +853,7 @@ for i_round in range(0, n_rounds):
 
             elif flag_changeTargets[completed_tasks_round[j]] != 0:
                 ind2 = completed_tasks_round[j]
-                ind3 = np.where(changeTargets[0] == ind2)
-                pos_t = np.vstack((pos_t, pos_t_initial[ind2]))
+                ind3 = np.where(changeTargets[0] == ind2 + 1)
                 pos_t = np.vstack((pos_t, pos_t_initial[ind2]))
                 v_t = np.vstack((v_t, [0, 0]))
                 nt += 1
@@ -874,7 +879,6 @@ for i_round in range(0, n_rounds):
                 Tasks["tloiter"] = tloiter_t
                 Tasks["radius"] = radius_t
                 Tasks["radius_t_2"] = radius_t_2
-
                 Tasks["angle"] = np.append(Tasks["angle"], changeTargets[1, ind3])
                 Tasks["restCheck"] = np.append(
                     Tasks["restCheck"], changeTargets[2, ind3]
