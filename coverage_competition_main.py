@@ -1,11 +1,28 @@
 import numpy as np
+import json
+from pyproj import Proj
+import os
 import warnings
 
 warnings.filterwarnings("ignore")
 
+stage1_folder = "./stage1_json"
+for file_name in os.listdir(stage1_folder):
+    file_path = os.path.join(stage1_folder, file_name)
+    if os.path.isfile(file_path):
+        os.remove(file_path)
+
+# Remove files in ./stage2_json folder
+stage2_folder = "./stage2_json"
+for file_name in os.listdir(stage2_folder):
+    file_path = os.path.join(stage2_folder, file_name)
+    if os.path.isfile(file_path):
+        os.remove(file_path)
+
 # from GreedyCoalitionAuctionAlgorithm import lla2ecef
 import matplotlib.pyplot as plt
 from matlibPy.lla_to_ecef import lla2ecef
+from matlibPy.ecef_to_lla import ecef2lla
 from findStrips import findStrips
 from OptimalControlSolution_stage1 import OptimalControlSolution_stage1
 from OptimalControlSolution_stage2 import OptimalControlSolution_stage2
@@ -23,7 +40,7 @@ uniform_agents = 0
 uniform_tasks = 1  # Each task's hovering radius is consistent
 plot_range = 1
 na = 8
-nt = 34
+nt = 32
 n_rounds = 2000
 
 Lt = 1
@@ -34,29 +51,33 @@ task_type[0:nt_loiter] = 1
 task_type1 = np.ones((nt, 1))
 lambda_val = 1
 
-map_width = 7000
+map_width = 7250
 comm_distance = 0.01 * map_width
 
 simu_time = 10
-time_step = 0.05
+time_step = 5
 time_start = 0
 max_speed = 1
 max_speed_task = 0.1
 
 vesPosition = np.array(
     [
-        [121.64994868, 38.82776073],
-        [121.64994868, 38.82775873],
-        [121.64994868, 38.82775673],
-        [121.64994868, 38.82775473],
-        [121.64994868, 38.82775273],
-        [121.64994868, 38.82775073],
-        [121.64994868, 38.82774873],
-        [121.64994868, 38.82774673],
+        [121.65377598, 38.82595636],
+        [121.65377598, 38.82305520],
+        [121.65377598, 38.81996062],
+        [121.65377598, 38.81709814],
+        [121.65377598, 38.81431302],
+        [121.65377598, 38.81152791],
+        [121.65377598, 38.80847201],
+        [121.65377598, 38.80557085],
     ]
 )
 vesPosition_3 = np.zeros((vesPosition.shape[0], 3))
-vesPosition_3[:, 0:2] = vesPosition
+# vesPosition_3[:, 0:2] = vesPosition
+
+# debug
+vesPosition_3[:, 0:2] = vesPosition[:, [1, 0]]
+
 p_agent = lla2ecef(vesPosition_3, "WGS84")
 p_agent = p_agent[:, :2]
 
@@ -87,10 +108,21 @@ targets_pos_value = np.array(
         [121.7002181004114, 38.812372621474879],
         [121.67812178420058, 38.826617900888834],
         [121.71204920406547, 38.80605631718123],
+        [121.66502627357841, 38.84108488727361],
+        [121.71622402252871, 38.825370693544812],
+        [121.66338629520476, 38.784079916968153],
+        [121.70796813066727, 38.782007407946821],
+        [121.68732838777908, 38.810225433215066],
+        [121.70404657828328, 38.824095299183966],
+        [121.65781356356618, 38.821225675502149],
+        [121.68774118369561, 38.83589266976162],
+        [121.68487397874952, 38.853679222580809],
+        [121.67142315889046, 38.798675571360093],
     ]
 )
+
 targets_pos_value_3 = np.zeros((targets_pos_value.shape[0], 3))
-targets_pos_value_3[:, 0:2] = targets_pos_value
+targets_pos_value_3[:, 0:2] = targets_pos_value[:, [1, 0]]
 p_targets = lla2ecef(targets_pos_value_3, "WGS84")
 p_targets = p_targets[:, :2]
 
@@ -107,24 +139,28 @@ taskArea = np.array(
         [121.66473222, 38.85573388],
     ]
 )
+
 taskArea_3 = np.zeros((taskArea.shape[0], 3))
-taskArea_3[:, 0:2] = taskArea
+taskArea_3[:, 0:2] = taskArea[:, [1, 0]]
 p_task = lla2ecef(taskArea_3, "WGS84")
 p_task = p_task[:, :2]
 
 p_all = np.concatenate((p_agent, p_targets, p_task))
+deviation_x = np.min(p_all[:, 0])
+deviation_y = np.min(p_all[:, 1])
 
-p_agent[:, 0] = p_agent[:, 0] - np.min(p_all[:, 0])
-p_agent[:, 1] = p_agent[:, 1] - np.min(p_all[:, 1])
+p_agent[:, 0] = p_agent[:, 0] - deviation_x
+p_agent[:, 1] = p_agent[:, 1] - deviation_y
 pos_a = p_agent
 
-p_targets[:, 0] = p_targets[:, 0] - np.min(p_all[:, 0])
-p_targets[:, 1] = p_targets[:, 1] - np.min(p_all[:, 1])
+p_targets[:, 0] = p_targets[:, 0] - deviation_x
+p_targets[:, 1] = p_targets[:, 1] - deviation_y
 pos_t = p_targets
 
 p_task = p_task.T
-p_task[0, :] = p_task[0, :] - np.min(p_all[:, 0])
-p_task[1, :] = p_task[1, :] - np.min(p_all[:, 1])
+p_task[0, :] = p_task[0, :] - deviation_x
+p_task[1, :] = p_task[1, :] - deviation_y
+
 
 targets_angle = np.array(
     [
@@ -153,16 +189,62 @@ targets_angle = np.array(
         270,
         285,
         240,
+        180,
+        255,
+        60,
+        240,
+        150,
+        300,
+        90,
+        270,
+        285,
+        240,
     ]
 )
 
 targets_restCheck = np.array(
-    [3, 4, 4, 5, 4, 3, 3, 4, 5, 4, 3, 4, 5, 4, 3, 5, 4, 5, 4, 4, 5, 4, 5, 4, 5]
+    [
+        3,
+        4,
+        4,
+        5,
+        4,
+        3,
+        3,
+        4,
+        5,
+        4,
+        3,
+        4,
+        5,
+        4,
+        3,
+        5,
+        4,
+        5,
+        4,
+        4,
+        5,
+        4,
+        5,
+        4,
+        5,
+        3,
+        4,
+        5,
+        4,
+        4,
+        5,
+        4,
+        5,
+        4,
+        5,
+    ]
 )
 
 x = p_task[0, :]
 y = p_task[1, :]
-lmin, lmax, V, laneDist = findStrips(x, y, 0, 300, 300)
+lmin, lmax, V, laneDist = findStrips(x, y, 0, 400, 400)
 lmin = lmin[np.argsort(lmin[:, 0])]
 lmax = lmax[np.argsort(lmax[:, 0])]
 pos_waypoints = np.concatenate((lmin, lmax))
@@ -186,6 +268,167 @@ def remove_completed_tasks(pos_t, ind):
             pos_t_new[k] = pos_t[t - 1]
             k = k + 1
     return pos_t_new
+
+
+def output_json2(Xfinal, na, deviation_x, deviation_y, time_step, i_round):
+    # Assuming Xfinal, na, deviation_x, deviation_y, time_step and i_round are defined previously
+    pos_a_points = np.zeros((na, 2))
+    points_temp = np.zeros((2, na))
+
+    for j in range(na):
+        if Xfinal[j].shape[1] >= 3:
+            pos_a_points[j, :] = Xfinal[j][0:2, 2]
+            points_temp[:, j] = Xfinal[j][0:2, 2] - Xfinal[j][0:2, 1]
+        elif Xfinal[j].size != 0:
+            pos_a_points[j, :] = Xfinal[j][0:2, -1]
+            points_temp[:, j] = Xfinal[j][0:2, -1] - Xfinal[j][0:2, -1]
+
+    pos_a_loop_rec = np.zeros_like(pos_a_loop)
+    pos_a_loop_rec[:, 0] = pos_a_loop[:, 0] + deviation_x
+    pos_a_loop_rec[:, 1] = pos_a_loop[:, 1] + deviation_y
+    pos_a_loop3 = np.zeros([pos_a_loop_rec.shape[0], 3])
+    pos_a_loop3[:, 0:2] = pos_a_loop_rec
+    pos_a_loop3[:, 2] = 3.9765e06
+
+    # Conversion from ECEF to LLA
+
+    pos_a_lla = ecef2lla(pos_a_loop3, "WGS84")
+    pos_a_output = pos_a_lla[:, [1, 0]]
+
+    pos_a_points[:, 0] = pos_a_points[:, 0] + deviation_x
+    pos_a_points[:, 1] = pos_a_points[:, 1] + deviation_y
+    pos_a_points3 = np.zeros([pos_a_points.shape[0], 3])
+    pos_a_points3[:, 0:2] = pos_a_points
+    pos_a_points3[:, 2] = 3.9765e06
+
+    # Conversion from ECEF to LLA
+    pos_a_points_lla = ecef2lla(pos_a_points3, "WGS84")
+    pos_a_points_output = pos_a_points_lla[:, [1, 0]]
+
+    s = {"id": 2, "method": "stage_2"}
+    agent_name = ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8"]
+
+    id = []
+    spd_temp = [0, 0]
+
+    for j in range(na):
+        course = 0
+        if Xfinal[j].shape[1] >= 2:
+            spd_temp = Xfinal[j][0:2, 1] - Xfinal[j][0:2, 0]
+        elif Xfinal[j].size != 0:
+            spd_temp = Xfinal[j][0:2, -1] - Xfinal[j][0:2, -1]
+
+        spd = np.linalg.norm(spd_temp) / (time_step * 0.51444)
+        if np.sum(spd_temp) != 0:
+            course = np.arctan2(spd_temp[1], spd_temp[0]) * 180 / np.pi
+
+        if course > 90 and course < 180:
+            course = 450 - course
+        else:
+            course = 90 - course
+
+        spd_points = [
+            np.linalg.norm(points_temp[:, j]) / (time_step * 0.51444)
+            for j in range(points_temp.shape[1])
+        ]
+
+        for i in range(len(agent_name)):
+            curr_pos = {
+                "coord": pos_a_output[i, :].tolist(),
+                "spd": spd,
+                "course": course,
+            }
+            s.setdefault("content", {}).setdefault("arguments", {}).setdefault(
+                "vesPostion", {}
+            )[agent_name[i]] = curr_pos
+
+            points = [
+                {
+                    "coord": pos_a_points_output[i, :].tolist(),
+                    "spd": spd_points[i],
+                }
+            ]
+            waypoint = {"shape": "LineString", "points": points}
+            id.append({"id": agent_name[i], "path": waypoint})
+            s["content"]["arguments"]["road"] = id
+
+    t = json.dumps(s, indent=4)
+
+    # Assuming the directory 'stage2_json' exists in the current directory
+    filename = os.path.join(os.getcwd(), "stage2_json", f"{i_round:05d}.json")
+    with open(filename, "w") as file:
+        file.write(t)
+
+
+def output_json(X, deviation_x, deviation_y, time_step, i_round):
+    # Assuming X, deviation_x, deviation_y, time_step and i_round are defined previously
+    pos_a_points = np.transpose(X[0:2, :, 2])
+
+    pos_a_loop_rec = np.zeros_like(pos_a_loop)
+    pos_a_loop_rec[:, 0] = pos_a_loop[:, 0] + deviation_x
+    pos_a_loop_rec[:, 1] = pos_a_loop[:, 1] + deviation_y
+    pos_a_loop3 = np.zeros([pos_a_loop_rec.shape[0], 3])
+    pos_a_loop3[:, 0:2] = pos_a_loop_rec
+    pos_a_loop3[:, 2] = 3.9765e06
+
+    # Conversion from ECEF to LLA
+
+    pos_a_lla = ecef2lla(pos_a_loop3, "WGS84")
+    pos_a_output = pos_a_lla[:, [1, 0]]
+
+    pos_a_points[:, 0] = pos_a_points[:, 0] + deviation_x
+    pos_a_points[:, 1] = pos_a_points[:, 1] + deviation_y
+    pos_a_points3 = np.zeros([pos_a_points.shape[0], 3])
+    pos_a_points3[:, 0:2] = pos_a_points
+    pos_a_points3[:, 2] = 3.9765e06
+
+    # Conversion from ECEF to LLA
+    pos_a_points_lla = ecef2lla(pos_a_points3, "WGS84")
+    pos_a_points_output = pos_a_points_lla[:, [1, 0]]
+
+    s = {"id": 1, "method": "stage_1"}
+    agent_name = ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8"]
+
+    id = []
+
+    spd_temp = X[0:2, :, 1] - X[0:2, :, 0]
+    spd = [
+        np.linalg.norm(spd_temp[:, j]) / (time_step * 0.51444)
+        for j in range(spd_temp.shape[1])
+    ]
+    course = [
+        np.arctan2(spd_temp[1, j], spd_temp[0, j]) * 180 / np.pi
+        for j in range(spd_temp.shape[1])
+    ]
+    course = [450 - c if c > 0 else abs(c) + 90 for c in course]
+
+    points_temp = X[0:2, :, 2] - X[0:2, :, 1]
+    spd_points = [
+        np.linalg.norm(points_temp[:, j]) / (time_step * 0.51444)
+        for j in range(points_temp.shape[1])
+    ]
+
+    for i in range(len(agent_name)):
+        curr_pos = {
+            "coord": pos_a_output[i, :].tolist(),
+            "spd": spd[i],
+            "course": course[i],
+        }
+        s.setdefault("content", {}).setdefault("arguments", {}).setdefault(
+            "vesPostion", {}
+        )[agent_name[i]] = curr_pos
+
+        points = [{"coord": pos_a_points_output[i, :].tolist(), "spd": spd_points[i]}]
+        waypoint = {"shape": "LineString", "points": points}
+        id.append({"id": agent_name[i], "path": waypoint})
+        s["content"]["arguments"]["road"] = id
+
+    t = json.dumps(s, indent=4)
+
+    # Assuming the directory 'stage1_json' exists in the current directory
+    filename = os.path.join(os.getcwd(), "stage1_json", f"{i_round:05d}.json")
+    with open(filename, "w") as file:
+        file.write(t)
 
 
 def update_path(p, pos_a, pos_t, time_step, Agents, nt):
@@ -273,7 +516,7 @@ completed_tasks = []
 i_round = 0
 
 
-p_GCAA = [[1], [3], [5], [7], [9], [11], [13], [15]]
+p_GCAA = [[15], [13], [11], [9], [7], [5], [3], [1]]
 ind_completed = []
 targets_searched = []
 dynamic_flag = np.zeros((na, 1))
@@ -286,7 +529,7 @@ colors = ["red", "green", "blue", "orange", "purple", "cyan", "magenta", "yellow
 all_targets_searched = np.empty((0, 2), float)
 
 while not all(sublist == [0] for sublist in p_GCAA):
-    break
+    # break
     # mat_p_GCAA = np.array(p_GCAA)
     # mat_p_GCAA = mat_p_GCAA[mat_p_GCAA != [-1]]
 
@@ -297,6 +540,7 @@ while not all(sublist == [0] for sublist in p_GCAA):
     if len(mat_p_GCAA) == 0:
         pos_waypoint = []
     else:
+        mat_p_GCAA = [x - 1 for x in mat_p_GCAA]
         pos_waypoint = pos_waypoints[mat_p_GCAA, :]
     pos_waypoint = np.squeeze(pos_waypoint)
 
@@ -350,6 +594,8 @@ while not all(sublist == [0] for sublist in p_GCAA):
 
     for w in range(len(pos_waypoint)):
         if w + 1 not in completed_tasks:
+            if pos_waypoint.ndim != 2:
+                break
             if w == 0:
                 plt.plot(
                     pos_waypoint[w, 0],
@@ -424,13 +670,14 @@ while not all(sublist == [0] for sublist in p_GCAA):
         for k in range(len(completed_tasks_round)):
             ind_completed = p_GCAA.index(completed_tasks_round[k])
             if dynamic_flag[ind_completed] == 0:
-                p_GCAA[ind_completed][0] += 17
+                # debug
+                p_GCAA[ind_completed][0] += len(lmin)
                 dynamic_flag[ind_completed] += 1
             elif dynamic_flag[ind_completed] == 1:
                 p_GCAA[ind_completed][0] += 1
                 dynamic_flag[ind_completed] += 1
             elif dynamic_flag[ind_completed] == 2:
-                p_GCAA[ind_completed][0] -= 17
+                p_GCAA[ind_completed][0] -= len(lmin)
                 dynamic_flag[ind_completed] += 1
             elif dynamic_flag[ind_completed] == 3:
                 p_GCAA[ind_completed] = [0]
@@ -444,6 +691,7 @@ while not all(sublist == [0] for sublist in p_GCAA):
         Agents["kdrag"] = kdrag
 
         n_rounds_loop = n_rounds
+    output_json(X, deviation_x, deviation_y, time_step, i_round)
 
     i_round += 1
 
@@ -479,10 +727,9 @@ plt.plot(p_task[0, :], p_task[1, :], "k", label="Boundary", linewidth=2)
 
 # Initial parameter settings
 na = 8
-nt = 25
+nt = 35
 nt_ini = nt
 n_rounds = 5000
-
 
 targets_angle = np.array(
     [
@@ -511,15 +758,68 @@ targets_angle = np.array(
         270,
         285,
         240,
+        180,
+        255,
+        60,
+        240,
+        150,
+        300,
+        90,
+        270,
+        285,
+        240,
     ]
 )
+
 targets_restCheck = np.array(
-    [3, 4, 4, 5, 4, 3, 3, 4, 5, 4, 3, 4, 5, 4, 3, 5, 4, 5, 4, 4, 5, 4, 5, 4, 5]
+    [
+        3,
+        4,
+        4,
+        5,
+        4,
+        3,
+        3,
+        4,
+        5,
+        4,
+        3,
+        4,
+        5,
+        4,
+        3,
+        5,
+        4,
+        5,
+        4,
+        4,
+        5,
+        4,
+        5,
+        4,
+        5,
+        3,
+        4,
+        5,
+        4,
+        4,
+        5,
+        4,
+        5,
+        4,
+        5,
+    ]
 )
-changeTargetsNo = 5
+
 changeTargets = np.array(
-    [[5, 10, 15, 20, 25], [45, 60, 180, 135, 120], [4, 4, 3, 4, 5], [2, 1, 2, 1, 1]]
+    [
+        [5, 10, 15, 20, 25, 30, 35],
+        [150, 225, 180, 300, 120, 345, 330],
+        [3, 2, 3, 5, 4, 1, 4],
+        [2, 1, 2, 2, 2, 1, 3],
+    ]
 )
+
 
 max_index = np.max(changeTargets[0])
 # targets_restCheck.resize(
@@ -532,7 +832,7 @@ targets_restCheck[changeTargets[0] - 1] = changeTargets[3]
 pos_t_initial = np.copy(pos_t)
 pos_t_initial = np.hstack((pos_t_initial, np.arange(1, nt + 1).reshape(-1, 1)))
 
-R = 300  # task outer orbit radius
+R = 150  # task outer orbit radius
 R2 = 50  # threat zone radius
 radius_t = R * np.ones(nt)
 radius_t_2 = R2 * np.ones(nt)
@@ -542,11 +842,11 @@ task_type = np.zeros(nt)
 task_type1 = np.ones(nt)
 lambda_val = 1
 
-map_width = 7000
+map_width = 7250
 comm_distance = 0.01 * map_width
 
 simu_time = 10
-time_step = 0.05
+time_step = 1
 time_start = 0
 tf_t = simu_time * (1.95 + 0.05 * np.random.rand(nt))
 tloiter_t = simu_time * (0.2 + 0.05 * np.random.rand(nt))
@@ -806,6 +1106,7 @@ for i_round in range(0, n_rounds):
     # plt.legend(legendUnq(plt.gca()))
     plt.draw()
     plt.pause(0.00001)
+    output_json2(Xfinal, na, deviation_x, deviation_y, time_step, i_round)
 
     # Update position and velocity of each agent
     for i in range(na):
@@ -838,18 +1139,19 @@ for i_round in range(0, n_rounds):
         ind1 = [i for i, j in enumerate(tmp1) if j in completed_tasks_round]
         for j in range(len(ind1)):
             if ind1[j] != -1 and flag_changeTargets[completed_tasks_round[j]] == 0:
-                pos_t_tmp = np.delete(Tasks_initial["Pos"], ind1[j] + 1, axis=0)
-                radius_t_tmp = np.delete(Tasks_initial["radius"], ind1[j] + 1, axis=0)
-                radius_t_2_tmp = np.delete(
-                    Tasks_initial["radius_t_2"], ind1[j] + 1, axis=0
-                )
-                task_type1_tmp = np.delete(
-                    Tasks_initial["task_type1"], ind1[j] + 1, axis=0
-                )
-                Tasks_initial["Pos"] = pos_t_tmp
-                Tasks_initial["radius"] = radius_t_tmp
-                Tasks_initial["radius_t_2"] = radius_t_2_tmp
-                Tasks_initial["task_type1"] = task_type1_tmp
+                # pos_t_tmp = np.delete(Tasks_initial["Pos"], ind1[j] + 1, axis=0)
+                # radius_t_tmp = np.delete(Tasks_initial["radius"], ind1[j] + 1, axis=0)
+                # radius_t_2_tmp = np.delete(
+                #     Tasks_initial["radius_t_2"], ind1[j] + 1, axis=0
+                # )
+                # task_type1_tmp = np.delete(
+                #     Tasks_initial["task_type1"], ind1[j] + 1, axis=0
+                # )
+                # Tasks_initial["Pos"] = pos_t_tmp
+                # Tasks_initial["radius"] = radius_t_tmp
+                # Tasks_initial["radius_t_2"] = radius_t_2_tmp
+                # Tasks_initial["task_type1"] = task_type1_tmp
+                pass
 
             elif flag_changeTargets[completed_tasks_round[j]] != 0:
                 ind2 = completed_tasks_round[j]
@@ -934,4 +1236,4 @@ plt.plot(p_task[0, :], p_task[1, :], "k", label="Boundary", linewidth=2)
 plt.legend(loc="upper right")
 plt.draw()
 plt.pause(0.001)
-plt.show()
+# plt.show()

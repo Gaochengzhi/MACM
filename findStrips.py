@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial import ConvexHull, Delaunay
 
+
 def findStrips(x, y, sidelap, imageWidth, imageLength):
     # Compute the convex hull of the region to be investigated
     hull = ConvexHull(np.vstack([x, y]).T)
@@ -17,7 +18,10 @@ def findStrips(x, y, sidelap, imageWidth, imageLength):
             areaWidth = max(aux[0, :]) - min(aux[0, :])
             thetamin = theta
     # Rotate the region to the angle chosen in the previous step to facilitate subsequent calculations
-    R = np.array([[np.cos(thetamin), -np.sin(thetamin)], [np.sin(thetamin), np.cos(thetamin)]])
+    thetamin = thetamin + np.pi / 2
+    R = np.array(
+        [[np.cos(thetamin), -np.sin(thetamin)], [np.sin(thetamin), np.cos(thetamin)]]
+    )
     aux = R @ np.vstack([x, y])
     x, y = aux[0, :], aux[1, :]
     areaWidth = max(x) - min(x)
@@ -49,8 +53,7 @@ def findStrips(x, y, sidelap, imageWidth, imageLength):
         if i == 0:
             V[i, :] = [0, 0]
         elif i % 2 == 0:
-            V[i, :] = lmin[i // 2-1, :]
+            V[i, :] = lmin[i // 2 - 1, :]
         else:
             V[i, :] = lmax[(i - 1) // 2, :]
     return lmin, lmax, V, laneDist
-

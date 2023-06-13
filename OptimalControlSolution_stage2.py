@@ -65,7 +65,10 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
             R = radius_t[ind_task]
             norm_vt = 2 * np.pi * R / tloiter_t[ind_task]
             norm_a = norm_vt**2 / R
-            exp_angle = targets_angle[ind_task - 1]
+            if 270 <= targets_angle[ind_task - 1] <= 360:
+                exp_angle = 450 - targets_angle[ind_task - 1]
+            else:
+                exp_angle = 90 - targets_angle[ind_task - 1]
 
             if tloiter_t[ind_task] > 0 and tf > 0:
                 J_to_completion_target[i] += (
@@ -83,11 +86,13 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
 
             while np.linalg.norm(pos_t_curr - X[0:2, i, k]) > 53:
                 u = 0
-                angle = pos_t_curr - X[0:2, i, k]
+                angle = X[0:2, i, k] - pos_a_curr
                 if (
                     np.linalg.norm(pos_t_curr - X[0:2, i, k]) < R + 3
-                    and abs(
-                        np.degrees(np.arctan2(angle[1], angle[0])) - (exp_angle - 180)
+                    or np.abs(
+                        np.abs(np.angle(np.complex(2, 1), deg=True))
+                        - np.abs(np.angle(np.complex(1, 1), deg=True))
+                        - exp_angle
                     )
                     < 5
                 ):
@@ -95,13 +100,17 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
                     d = np.linalg.norm(r_target_circle)
                     curr_velocity = np.zeros_like(X[:, i, k])
                     curr_velocity[0:2] = r_target_circle / d
-                    X[:, i, k + 1] = X[:, i, k] + time_step * curr_velocity * 500
+                    X[:, i, k + 1] = (
+                        X[:, i, k] + time_step * curr_velocity * 9 * 0.5144444
+                    )
                 elif np.linalg.norm(pos_t_curr_app - X[0:2, i, k]) > 3:
                     r_target_circle = pos_t_curr_app - X[0:2, i, k]
                     d = np.linalg.norm(r_target_circle)
                     curr_velocity = np.zeros_like(X[:, i, k])
                     curr_velocity[0:2] = r_target_circle / d
-                    X[:, i, k + 1] = X[:, i, k] + time_step * curr_velocity * 500
+                    X[:, i, k + 1] = (
+                        X[:, i, k] + time_step * curr_velocity * 20 * 0.5144444
+                    )
                     tmp = k
 
                 t += time_step
@@ -147,7 +156,6 @@ def OptimalControlSolution_stage2(Agents, Tasks, p_GCAA, time_step, n_rounds, kd
                 + (targets_restCheck[ind_task] - 1) * (2 * (lengTh - 1) - 2),
             ] = Xtmp3
             tmp = np.copy(X[:, i, :])
-            # tmp = tmp[:, ~np.all(tmp == 0.0, axis=0)]
             trimmed_tmp = remove_consecutive_zeros(tmp)
             Xfinal[i] = trimmed_tmp
         elif flag_changeTargets[ind_task] > 1 and targets_restCheck[ind_task] > 1:

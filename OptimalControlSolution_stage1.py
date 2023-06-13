@@ -41,7 +41,7 @@ def OptimalControlSolution_stage1(
             pGCAA_len = len(p_GCAA[i])
             for j in range(pGCAA_len):
                 k = 0
-                ind_task = p_GCAA[i][j]
+                ind_task = p_GCAA[i][j] - 1
                 tf = tf_t[ind_task]
 
                 if j > 0:
@@ -62,7 +62,7 @@ def OptimalControlSolution_stage1(
                 [np.cos(np.radians(15)), np.sin(np.radians(15))]
             )
 
-            while np.linalg.norm(pos_t_curr - X[0:2, i, k]) > 40:  # 设置终点触发条件
+            while np.linalg.norm(pos_t_curr - X[0:2, i, k]) > 30:  # 设置终点触发条件
                 u = 0
                 angle = pos_t_curr - X[0:2, i, k]
 
@@ -70,7 +70,7 @@ def OptimalControlSolution_stage1(
                 d = np.linalg.norm(r_target_circle)
                 curr_velocity = np.zeros(X[:, i, k].shape)
                 curr_velocity[0:2] = r_target_circle / d
-                X[:, i, k + 1] = X[:, i, k] + time_step * curr_velocity * 750
+                X[:, i, k + 1] = X[:, i, k] + time_step * curr_velocity * 20 * 0.5144444
 
                 t += time_step
                 k += 1
