@@ -3,62 +3,48 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-# from GreedyCoalitionAuctionAlgorithm import lla2ecef
 import matplotlib.pyplot as plt
 from matlibPy.lla_to_ecef import lla2ecef
 from findStrips import findStrips
-from OptimalControlSolution_stage1 import OptimalControlSolution_stage1
+from addObs import addTarget
+from addAgent import addAgent
+from inSensorRange import inSensorRange
+from updateAgent import updateAgent
+from getControls import getControls
 from OptimalControlSolution_stage2 import OptimalControlSolution_stage2
-from plotMapAllocation_stage1 import plotMapAllocation_stage1
 from plotMapAllocation_stage2 import plotMapAllocation_stage2
 from PlotTaskLoitering import PlotTaskLoitering
 from GreedyCoalitionAuctionAlgorithm.GCAASolution_revised import GCAASolution_revised
 
-# from legendUnq import legendUnq
+
+def lines(n):
+    cmap = plt.get_cmap("tab10")
+    return [cmap(i) for i in np.linspace(0, 1, n)]
 
 
-# Stage 1: 区域覆盖及静目标搜索
-# Initial parameter settings
-uniform_agents = 0
-uniform_tasks = 1  # Each task's hovering radius is consistent
-plot_range = 1
-na = 8
-nt = 34
-n_rounds = 2000
+def futurePosition(agent, dt):
+    position = np.array(agent["position"]) + np.array(agent["newControl"]) * dt
+    return position
 
-Lt = 1
-ii = 0
-nt_loiter = int(0 * nt)  # Coefficient of nt determines the number of circling agents
-task_type = np.zeros((nt, 1))  # Which agents circle, which agents approach directly
-task_type[0:nt_loiter] = 1
-task_type1 = np.ones((nt, 1))
-lambda_val = 1
+
+agent_number = 8
+target_number = 34
 
 map_width = 7000
-comm_distance = 0.01 * map_width
 
-simu_time = 10
-time_step = 0.05
-time_start = 0
-max_speed = 1
-max_speed_task = 0.1
-
-vesPosition = np.array(
+agentInitPostion = np.array(
     [
-        [121.64994868, 38.82776073],
-        [121.64994868, 38.82775873],
-        [121.64994868, 38.82775673],
-        [121.64994868, 38.82775473],
-        [121.64994868, 38.82775273],
-        [121.64994868, 38.82775073],
-        [121.64994868, 38.82774873],
-        [121.64994868, 38.82774673],
+        [121.65377598, 38.82595636],
+        [121.65377598, 38.82305520],
+        [121.65377598, 38.81996062],
+        [121.65377598, 38.81709814],
+        [121.65377598, 38.81431302],
+        [121.65377598, 38.81152791],
+        [121.65377598, 38.80847201],
+        [121.65377598, 38.80557085],
     ]
 )
-vesPosition_3 = np.zeros((vesPosition.shape[0], 3))
-vesPosition_3[:, 0:2] = vesPosition
-p_agent = lla2ecef(vesPosition_3, "WGS84")
-p_agent = p_agent[:, :2]
+p_agent = lla2ecef(agentInitPostion)
 
 targets_pos_value = np.array(
     [
@@ -87,12 +73,19 @@ targets_pos_value = np.array(
         [121.7002181004114, 38.812372621474879],
         [121.67812178420058, 38.826617900888834],
         [121.71204920406547, 38.80605631718123],
+        [121.66502627357841, 38.84108488727361],
+        [121.71622402252871, 38.825370693544812],
+        [121.66338629520476, 38.784079916968153],
+        [121.70796813066727, 38.782007407946821],
+        [121.68732838777908, 38.810225433215066],
+        [121.70404657828328, 38.824095299183966],
+        [121.65781356356618, 38.821225675502149],
+        [121.68774118369561, 38.83589266976162],
+        [121.68487397874952, 38.853679222580809],
+        [121.67142315889046, 38.798675571360093],
     ]
 )
-targets_pos_value_3 = np.zeros((targets_pos_value.shape[0], 3))
-targets_pos_value_3[:, 0:2] = targets_pos_value
-p_targets = lla2ecef(targets_pos_value_3, "WGS84")
-p_targets = p_targets[:, :2]
+p_targets = lla2ecef(targets_pos_value)
 
 taskArea = np.array(
     [
@@ -107,24 +100,25 @@ taskArea = np.array(
         [121.66473222, 38.85573388],
     ]
 )
-taskArea_3 = np.zeros((taskArea.shape[0], 3))
-taskArea_3[:, 0:2] = taskArea
-p_task = lla2ecef(taskArea_3, "WGS84")
-p_task = p_task[:, :2]
+p_task = lla2ecef(taskArea, "WGS84")
+# p_task = taskArea_3
 
 p_all = np.concatenate((p_agent, p_targets, p_task))
+deviation_x = np.min(p_all[:, 0])
+deviation_y = np.min(p_all[:, 1])
 
-p_agent[:, 0] = p_agent[:, 0] - np.min(p_all[:, 0])
-p_agent[:, 1] = p_agent[:, 1] - np.min(p_all[:, 1])
+
+p_agent[:, 0] = p_agent[:, 0] - deviation_x
+p_agent[:, 1] = p_agent[:, 1] - deviation_y
 pos_a = p_agent
 
-p_targets[:, 0] = p_targets[:, 0] - np.min(p_all[:, 0])
-p_targets[:, 1] = p_targets[:, 1] - np.min(p_all[:, 1])
+p_targets[:, 0] = p_targets[:, 0] - deviation_x
+p_targets[:, 1] = p_targets[:, 1] - deviation_y
 pos_t = p_targets
 
 p_task = p_task.T
-p_task[0, :] = p_task[0, :] - np.min(p_all[:, 0])
-p_task[1, :] = p_task[1, :] - np.min(p_all[:, 1])
+p_task[0, :] = p_task[0, :] - deviation_x
+p_task[1, :] = p_task[1, :] - deviation_y
 
 targets_angle = np.array(
     [
@@ -162,20 +156,49 @@ targets_restCheck = np.array(
 
 x = p_task[0, :]
 y = p_task[1, :]
-lmin, lmax, V, laneDist = findStrips(x, y, 0, 300, 300)
-lmin = lmin[np.argsort(lmin[:, 0])]
-lmax = lmax[np.argsort(lmax[:, 0])]
+
+
+p_GCAA = [[15], [13], [11], [9], [7], [5], [3], [1]]
+ind_completed = []
+targets_searched = []
+
+
+mat_p_GCAA = np.array(p_GCAA).flatten()
+mat_p_GCAA = mat_p_GCAA[mat_p_GCAA != 0]
+senseorangeList = np.random.randint(200, 300, 8)
+dt = 3
+maxIterations = 1500
+counter = 0
+lmin, lmax, V, laneDist = findStrips(x, y, 0, 400, 400)
+
 pos_waypoints = np.concatenate((lmin, lmax))
+pos_waypoint = pos_waypoints[mat_p_GCAA]
+agents = addAgent(pos_a, pos_waypoint, senseorangeList)
+colors = lines(len(agents))
+dynamic_flag = np.zeros(len(agents))
+obs = [addTarget(str(i), pos_t[i], [0, 0], 3) for i in range(0, len(pos_t))]
 
-tf_t = simu_time * (
-    1.95 + 0.05 * np.random.rand(nt, 1)
-)  # tf_t will affect task allocation results
-tloiter_t = simu_time * (0.2 + 0.05 * np.random.rand(nt, 1))
-tloiter_t[task_type == 0] = 0
+selected_targets = np.array(
+    [
+        targets_pos_value[10, :],
+        targets_pos_value[22, :],
+        targets_pos_value[8, :],
+        targets_pos_value[26, :],
+        targets_pos_value[13, :],
+        targets_pos_value[24, :],
+        targets_pos_value[10, :],
+    ]
+)
 
-pos_t_initial = pos_waypoints
+# Calculate forbidden area points
+forbidArea = (selected_targets[1:, :] + selected_targets[:-1, :]) / 2
+forbidArea = np.vstack((forbidArea, forbidArea[0, :]))
 
-kdrag = 3 / simu_time
+# Swap columns for longitude and latitude
+forbidArea_3 = np.zeros((forbidArea.shape[0], 3))
+forbidArea_3[:, :2] = forbidArea[:, [1, 0]]
+p_forbidArea = lla2ecef(forbidArea_3, "WGS84")
+p_forbidArea = p_forbidArea[:, :2]
 
 
 def remove_completed_tasks(pos_t, ind):
@@ -209,250 +232,158 @@ def update_path(p, pos_a, pos_t, time_step, Agents, nt):
     return p, pos_a, ind_completed_tasks, nt, Agents
 
 
-if uniform_agents:
-    v_a = np.zeros((na, 2))
-else:
-    v_a = (2 * np.random.rand(na, 2) - 1) * max_speed
-
-if uniform_tasks:
-    v_t = np.zeros((nt, 2))
-else:
-    v_t = (2 * np.random.rand(nt, 2) - 1) * max_speed_task
-
-R = 300  # Radius for task hovering
-if uniform_tasks:
-    radius_t = R * np.ones((nt, 1))
-else:
-    radius_t = (0.2 * np.random.rand(nt, 1) + 1) * R
-
-R2 = 50
-radius_t_2 = R2 * np.ones((nt, 1))
-
-# Reward after task completion
-r_nom = 0.2
-if uniform_tasks:
-    r_bar = r_nom * np.ones((nt, 1))
-else:
-    r_bar = r_nom * np.random.rand(nt, 1)
-r_bar[task_type == 1] = 5 * r_bar[task_type == 1]
-
-# Probability that agent i successfully completes task j
-if uniform_agents:
-    prob_a_t = 0.7 * np.ones((na, nt))
-else:
-    prob_a_t = np.random.rand(na, nt)
-
-Tasks = {}
-Tasks["r_bar"] = r_bar
-Tasks["prob_a_t"] = prob_a_t
-Tasks["task_type"] = task_type
-
-Agents = {}
-Agents["N"] = na
-Agents["Lt"] = Lt * np.ones((1, na))
-Agents["v_a"] = v_a
-Agents["previous_task"] = np.zeros((na, 1))
-Agents["previous_winnerBids"] = np.zeros((na, 1))
-Agents["rin_task"] = np.zeros((na, 2))
-Agents["vin_task"] = np.zeros((na, 2))
-Agents["kdrag"] = kdrag
-
-# Fully connected graph
-G = np.logical_not(np.eye(Agents["N"]))
-
-n_rounds_loop = n_rounds
-simu_time_loop = simu_time
-time_start_loop = time_start
-tf_t_loop = tf_t
 pos_a_loop = pos_a
-v_a_loop = v_a
 
-completed_tasks_round = []
-completed_tasks = []
+plt.figure(figsize=(10, 10))
+while len(mat_p_GCAA) > 0:
+    completed_tasks = []
+    maxDistFromGoal = 0
 
-i_round = 0
+    for i in range(len(agents)):
+        obstacles = []
+        for j in range(len(agents)):
+            if i != j and inSensorRange(agents[i], agents[j]):
+                obstacles.append(agents[j])
+                pass
 
+        for j_ in range(len(obs)):
+            if inSensorRange(agents[i], obs[j_]):
+                obstacles.append(obs[j_])
+                if all(
+                    abs(obs[j_]["position"][0] - target[0]) >= 1e-3
+                    for target in targets_searched
+                ):
+                    targets_searched.append(obs[j_]["position"])
+        agents[i]["newControl"] = getControls(agents[i], obstacles, dt)
 
-p_GCAA = [[1], [3], [5], [7], [9], [11], [13], [15]]
-ind_completed = []
-targets_searched = []
-dynamic_flag = np.zeros((na, 1))
-
-colors = ["red", "green", "blue", "orange", "purple", "cyan", "magenta", "yellow"]
-
-#####################################
-# Core code for Stage 1
-
-all_targets_searched = np.empty((0, 2), float)
-
-while not all(sublist == [0] for sublist in p_GCAA):
-    break
-    # mat_p_GCAA = np.array(p_GCAA)
-    # mat_p_GCAA = mat_p_GCAA[mat_p_GCAA != [-1]]
-
-    mat_p_GCAA = np.array(
-        [sublist for sublist in p_GCAA if len(sublist) != 0 and sublist != [0]]
-    )
-    pos_waypoint = None
-    if len(mat_p_GCAA) == 0:
-        pos_waypoint = []
-    else:
-        pos_waypoint = pos_waypoints[mat_p_GCAA, :]
-    pos_waypoint = np.squeeze(pos_waypoint)
-
-    plt.clf()
-    plt.xlim([0, map_width])
-    plt.ylim([0, map_width])
-    plt.xlabel("x [m]")
-    plt.ylabel("y [m]")
-    plt.title(
-        "Stage 1: Area Coverage and Targets Searched: "
-        + str(len(all_targets_searched)),
-        fontsize=13,
-    )
-
-    targets_to_plot = []
-    targets_searched = np.empty((0, 2), float)
-
-    for i in range(na):
-        if i == 0:  # 只绘制第一个代理
-            plt.plot(
-                pos_a_loop[i, 0],
-                pos_a_loop[i, 1],
-                "*",
-                color=colors[i],
-                markersize=10,
-                label="Agent",
-            )
+    for i in range(len(agents)):
+        if len(agents[i]["path"]) == 0:
+            agents[i]["path"] = np.array([agents[i]["position"]])
         else:
-            plt.plot(
-                pos_a_loop[i, 0], pos_a_loop[i, 1], "*", color=colors[i], markersize=10
-            )
-        for j in range(len(p_targets)):
-            if np.linalg.norm(pos_a_loop[i, :] - p_targets[j, :]) <= 300:
-                targets_to_plot.append(p_targets[j, :])
-                if not np.any(np.all(targets_searched == p_targets[j, :], axis=1)):
-                    targets_searched = np.append(
-                        targets_searched, [p_targets[j, :]], axis=0
-                    )
-
-    all_targets_searched = np.append(all_targets_searched, targets_searched, axis=0)
-    all_targets_searched = np.unique(all_targets_searched, axis=0)
-    if len(all_targets_searched) > 0:
-        plt.plot(
-            all_targets_searched[:, 0],
-            all_targets_searched[:, 1],
-            "rs",
-            markersize=10,
-            label="Targets",
-            markerfacecolor=[1, 0.6, 0.6],
+            agents[i]["path"] = np.vstack([agents[i]["path"], agents[i]["position"]])
+        agents[i]["position"] = futurePosition(agents[i], dt)
+        maxDistFromGoal = max(
+            maxDistFromGoal, np.sum((agents[i]["position"] - agents[i]["goal"]) ** 2)
         )
 
-    for w in range(len(pos_waypoint)):
-        if w + 1 not in completed_tasks:
-            if w == 0:
-                plt.plot(
-                    pos_waypoint[w, 0],
-                    pos_waypoint[w, 1],
-                    "ko",
-                    linewidth=6,
-                    markersize=15,
-                    markeredgewidth=2,
-                    markerfacecolor="none",
-                    label="Waypoints",
-                )
-            else:
-                plt.plot(
-                    pos_waypoint[w, 0],
-                    pos_waypoint[w, 1],
-                    "ko",
-                    linewidth=6,
-                    markersize=15,
-                    markeredgewidth=2,
-                    markerfacecolor="none",
-                )
+        if (
+            np.linalg.norm(agents[i]["position"] - agents[i]["goal"]) <= 20
+            and p_GCAA[i] not in completed_tasks
+        ):
+            completed_tasks.append(p_GCAA[i])
 
+    if completed_tasks and len(pos_waypoint) == len(agents):
+        for k in range(len(completed_tasks)):
+            ind_completed = np.where(np.array(p_GCAA) == completed_tasks[k])[0]
+            if ind_completed.size > 0:
+                if dynamic_flag[ind_completed[0]] == 0:
+                    p_GCAA[ind_completed[0]][0] += len(lmin)
+                    dynamic_flag[ind_completed[0]] += 1
+                elif dynamic_flag[ind_completed[0]] == 1:
+                    p_GCAA[ind_completed[0]][0] += 1
+                    dynamic_flag[ind_completed[0]] += 1
+                elif dynamic_flag[ind_completed[0]] == 2:
+                    p_GCAA[ind_completed[0]][0] -= len(lmin)
+                    dynamic_flag[ind_completed[0]] += 1
+
+    if completed_tasks:
+        for k in range(len(completed_tasks)):
+            ind_completed = np.where(p_GCAA == completed_tasks[k])
+            if dynamic_flag[ind_completed[0]] == 3:
+                p_GCAA[ind_completed[0]] = 0
+
+    mat_p_GCAA = np.array(p_GCAA).flatten()
+    indices = [int(index) - 1 for index in mat_p_GCAA]
+    pos_waypoint = pos_waypoints[indices, :]
+
+    if len(pos_waypoint) == len(agents):
+        agents = updateAgent(agents, pos_waypoint)
+    plt.clf()
+    plt.plot(p_forbidArea[:, 0], p_forbidArea[:, 1], "k", label="Boundary", linewidth=2)
     plt.plot(p_task[0, :], p_task[1, :], "k", label="Boundary", linewidth=2)
-
-    Agents["Pos"] = pos_a_loop
-    Agents["v_a"] = v_a_loop
-
-    Tasks["Pos"] = pos_waypoints
-    Tasks["Speed"] = v_t
-    Tasks["N"] = nt
-    Tasks["tf"] = tf_t_loop
-    Tasks["lambda"] = lambda_val
-    Tasks["task_type"] = task_type
-    Tasks["tloiter"] = tloiter_t
-    Tasks["radius"] = radius_t
-    Tasks["angle"] = targets_angle
-    Tasks["restCheck"] = targets_restCheck
-
-    X, completed_tasks_round = OptimalControlSolution_stage1(
-        pos_a_loop,
-        v_a_loop,
-        pos_waypoints,
-        v_t,
-        radius_t,
-        p_GCAA,
-        Agents,
-        tf_t_loop,
-        tloiter_t,
-        time_step,
-        n_rounds_loop,
-        na,
-        kdrag,
+    plt.plot(
+        pos_waypoint[:, 0],
+        pos_waypoint[:, 1],
+        "ko",
+        markersize=15,
+        label="Waypoints",
+        markerfacecolor="none",
+        markeredgewidth=2,
     )
 
-    plotMapAllocation_stage1(X, n_rounds_loop, na, colors, "Planned Path")
+    for i, agent in enumerate(agents):
+        faceColor = np.array([0, 170, 255]) / 255
+        lineColor = np.array([135, 135, 135]) / 255
+        plt.plot(
+            agent["position"][0],
+            agent["position"][1],
+            "*",
+            color=colors[i],
+            markersize=10,
+            label="Agents",
+        )
+        # PlotTaskLoitering(
+        #     agent["position"], agent["radius"], 1, "g", "Agent Threaten Range"
+        # )
+        plt.quiver(
+            agent["position"][0],
+            agent["position"][1],
+            agent["velocity"][0],
+            agent["velocity"][1],
+            color="black",
+        )
+        plt.plot(
+            agent["path"][:, 0],
+            agent["path"][:, 1],
+            color=(0, 1, 0, 0.3),
+            linewidth=41.379,
+        )
+        plt.plot(
+            agent["path"][:, 0],
+            agent["path"][:, 1],
+            color=(1, 0, 0, 1),
+            linewidth="1",
+        )
 
-    plt.legend(loc="upper right")
+        plt.text(agent["position"][0], agent["position"][1], agent["name"])
 
+    if len(targets_searched) > 0:
+        for pos in targets_searched:
+            # PlotTaskLoitering(pos, 50, 1, "r", "Target Threaten Range")
+            plt.plot(
+                pos[0],
+                pos[1],
+                "rs",
+                markersize=5,
+                markerfacecolor=[1, 0.6, 0.6],
+                label="Targets",
+            )
+
+    plt.title(
+        "Stage 1: Area Coverage and Targets Searched: " + str(len(targets_searched)),
+        fontsize=20,
+    )
+    # plt.legend(legendUnq(plt.gca()))
+    plt.xlabel("X [m]")
+    plt.ylabel("Y [m]")
+    plt.xlim([0, 7250])
+    plt.ylim([0, 7250])
+    # plt.hold(False)
     plt.draw()
-    plt.pause(0.0001)
+    plt.pause(0.01)
 
-    # Update position and velocity of each agent
-    pos_a_loop = X[:2, :, 1].T
-    v_a_loop = X[2:4, :, 1].T
+    counter += 1
 
-    simu_time_loop -= time_step
-    time_start_loop += time_step
-    n_rounds_loop -= 1
-    tf_t_loop -= time_step
+    if maxDistFromGoal < 0.1:
+        break
 
-    if completed_tasks_round:
-        for k in range(len(completed_tasks_round)):
-            ind_completed = p_GCAA.index(completed_tasks_round[k])
-            if dynamic_flag[ind_completed] == 0:
-                p_GCAA[ind_completed][0] += 17
-                dynamic_flag[ind_completed] += 1
-            elif dynamic_flag[ind_completed] == 1:
-                p_GCAA[ind_completed][0] += 1
-                dynamic_flag[ind_completed] += 1
-            elif dynamic_flag[ind_completed] == 2:
-                p_GCAA[ind_completed][0] -= 17
-                dynamic_flag[ind_completed] += 1
-            elif dynamic_flag[ind_completed] == 3:
-                p_GCAA[ind_completed] = [0]
-
-        Agents["N"] = na
-        Agents["Lt"] = Lt * np.ones((1, na))
-        Agents["previous_task"] = np.zeros((na, 1))
-        Agents["previous_winnerBids"] = np.zeros((na, 1))
-        Agents["rin_task"] = np.zeros((na, 2))
-        Agents["vin_task"] = np.zeros((na, 2))
-        Agents["kdrag"] = kdrag
-
-        n_rounds_loop = n_rounds
-
-    i_round += 1
 
 plt.clf()
 plt.xlim([0, map_width])
 plt.ylim([0, map_width])
 plt.xlabel("x [m]")
 plt.ylabel("y [m]")
-for i in range(na):
+for i in range(agent_number):
     if i == 0:
         plt.plot(
             pos_a_loop[i, 0],
@@ -478,9 +409,9 @@ plt.legend(loc="upper right")
 # Stage 2: Static Target Exploration
 
 # Initial parameter settings
-na = 8
-nt = 25
-nt_ini = nt
+agent_number = 8
+target_number = 25
+nt_ini = target_number
 n_rounds = 5000
 
 
@@ -530,16 +461,18 @@ targets_restCheck[changeTargets[0] - 1] = changeTargets[3]
 
 
 pos_t_initial = np.copy(pos_t)
-pos_t_initial = np.hstack((pos_t_initial, np.arange(1, nt + 1).reshape(-1, 1)))
+pos_t_initial = np.hstack(
+    (pos_t_initial, np.arange(1, target_number + 1).reshape(-1, 1))
+)
 
 R = 300  # task outer orbit radius
 R2 = 50  # threat zone radius
-radius_t = R * np.ones(nt)
-radius_t_2 = R2 * np.ones(nt)
+radius_t = R * np.ones(target_number)
+radius_t_2 = R2 * np.ones(target_number)
 
 Lt = 1
-task_type = np.zeros(nt)
-task_type1 = np.ones(nt)
+task_type = np.zeros(target_number)
+task_type1 = np.ones(target_number)
 lambda_val = 1
 
 map_width = 7000
@@ -548,8 +481,8 @@ comm_distance = 0.01 * map_width
 simu_time = 10
 time_step = 0.05
 time_start = 0
-tf_t = simu_time * (1.95 + 0.05 * np.random.rand(nt))
-tloiter_t = simu_time * (0.2 + 0.05 * np.random.rand(nt))
+tf_t = simu_time * (1.95 + 0.05 * np.random.rand(target_number))
+tloiter_t = simu_time * (0.2 + 0.05 * np.random.rand(target_number))
 tloiter_t[task_type == 0] = 0
 
 uniform_agents = 0
@@ -560,42 +493,42 @@ kdrag = 3 / simu_time
 
 max_speed = 1
 if uniform_agents:
-    v_a = np.zeros((na, 2))
+    v_a = np.zeros((agent_number, 2))
 else:
-    v_a = (2 * np.random.rand(na, 2) - 1) * max_speed
+    v_a = (2 * np.random.rand(agent_number, 2) - 1) * max_speed
 
 max_speed_task = 0.1
 if uniform_tasks:
-    v_t = np.zeros((nt, 2))
+    v_t = np.zeros((target_number, 2))
 else:
-    v_t = (2 * np.random.rand(nt, 2) - 1) * max_speed_task
+    v_t = (2 * np.random.rand(target_number, 2) - 1) * max_speed_task
 
 r_nom = 0.2
 if uniform_tasks:
-    r_bar = r_nom * np.ones(nt)
+    r_bar = r_nom * np.ones(target_number)
 else:
-    r_bar = r_nom * np.random.rand(nt)
+    r_bar = r_nom * np.random.rand(target_number)
 r_bar[task_type == 1] = 5 * r_bar[task_type == 1]
 
-prob_a_t = 0.7 * np.ones((na, nt))
+prob_a_t = 0.7 * np.ones((agent_number, target_number))
 if uniform_agents:
-    prob_a_t = 0.7 * np.ones((na, nt))
+    prob_a_t = 0.7 * np.ones((agent_number, target_number))
 else:
-    prob_a_t = np.random.rand(na, nt)
+    prob_a_t = np.random.rand(agent_number, target_number)
 
 Agents = {}
-Agents["N"] = na
-Agents["Lt"] = Lt * np.ones(na)
+Agents["N"] = agent_number
+Agents["Lt"] = Lt * np.ones(agent_number)
 Agents["v_a"] = v_a
-Agents["previous_task"] = np.zeros(na)
-Agents["previous_winnerBids"] = np.zeros(na)
-Agents["rin_task"] = np.zeros((na, 2))
-Agents["vin_task"] = np.zeros((na, 2))
+Agents["previous_task"] = np.zeros(agent_number)
+Agents["previous_winnerBids"] = np.zeros(agent_number)
+Agents["rin_task"] = np.zeros((agent_number, 2))
+Agents["vin_task"] = np.zeros((agent_number, 2))
 Agents["kdrag"] = kdrag
 
-costs = np.zeros((na, nt))
-utility = np.zeros((na, nt))
-rewards = np.zeros((na, nt))
+costs = np.zeros((agent_number, target_number))
+utility = np.zeros((agent_number, target_number))
+rewards = np.zeros((agent_number, target_number))
 
 G = np.logical_not(np.eye(Agents["N"]))
 
@@ -616,27 +549,27 @@ rt_completed = 0
 
 X_full_simu = [0] * n_rounds
 p_GCAA_full_simu = [0] * n_rounds
-S_GCAA_ALL_full_simu = np.zeros((n_rounds, nt))
-rt_full_simu = np.zeros((n_rounds, nt))
-J = np.zeros((n_rounds, na))
-J_to_completion_target = np.zeros((n_rounds, na))
+S_GCAA_ALL_full_simu = np.zeros((n_rounds, target_number))
+rt_full_simu = np.zeros((n_rounds, target_number))
+J = np.zeros((n_rounds, agent_number))
+J_to_completion_target = np.zeros((n_rounds, agent_number))
 
 flag = 1
-flag_changeTargets = np.ones(nt)
+flag_changeTargets = np.ones(target_number)
 flag_changeTargets[changeTargets[0] - 1] += 1
 
 
 Agents["Pos"] = pos_a_loop
 Agents["v_a"] = v_a_loop
 
-pos_t = np.hstack((pos_t, np.arange(1, nt + 1).reshape(-1, 1)))
+pos_t = np.hstack((pos_t, np.arange(1, target_number + 1).reshape(-1, 1)))
 Tasks = {
     "r_bar": r_bar,
     "prob_a_t": prob_a_t,
     "task_type": task_type,
     "Pos": pos_t,
     "Speed": v_t,
-    "N": nt,
+    "N": target_number,
     "tf": tf_t_loop,
     "lambda": lambda_val,
     "task_type": task_type,
@@ -646,13 +579,13 @@ Tasks = {
     "radius_t_2": radius_t_2,
     "angle": targets_angle,
     "restCheck": targets_restCheck,
-    "completed": np.zeros(nt),
+    "completed": np.zeros(target_number),
     "flag_changeTargets": flag_changeTargets,
 }
 
 completed_agents = []
 assigned_tasks = []
-Xfinal = [None] * na
+Xfinal = [None] * agent_number
 Tasks_initial = Tasks.copy()
 completed_tasks_Store = []
 
@@ -667,7 +600,7 @@ for i_round in range(0, n_rounds):
     plt.xlabel("x [m]")
     plt.ylabel("y [m]")
     plt.title("Stage 2: Static Target Exploration", fontsize=15)
-    for i in range(na):
+    for i in range(agent_number):
         if i == 0:
             plt.plot(
                 pos_a_loop[i, 0],
@@ -736,7 +669,7 @@ for i_round in range(0, n_rounds):
             fontsize=15,
         )
 
-    if flag and nt != 0:
+    if flag and target_number != 0:
         _, p_GCAA_tmp, taskInd, _, _, Agents = GCAASolution_revised(Agents, G, Tasks)
         assigned_tasks = list(map(int, p_GCAA_tmp))
         (
@@ -768,12 +701,12 @@ for i_round in range(0, n_rounds):
             flag_changeTargets[int(task) - 1] -= 1
 
         # Indices of tasks to keep
-        keep_tasks = [i for i in range(nt) if i not in assigned_tasks]
+        keep_tasks = [i for i in range(target_number) if i not in assigned_tasks]
 
         assigned_tasks1 = [x - 1 for x in assigned_tasks]
         pos_t = np.delete(pos_t, assigned_tasks1, axis=0)
         v_t = np.delete(v_t, assigned_tasks1, axis=0)
-        nt -= len(assigned_tasks)
+        target_number -= len(assigned_tasks)
 
         tf_t = np.delete(tf_t, assigned_tasks1, axis=0)
         tf_t_loop = tf_t
@@ -786,7 +719,7 @@ for i_round in range(0, n_rounds):
         Tasks["prob_a_t"] = np.delete(Tasks["prob_a_t"], assigned_tasks1, axis=1)
         Tasks["Pos"] = pos_t
         Tasks["Speed"] = v_t
-        Tasks["N"] = nt
+        Tasks["N"] = target_number
         Tasks["tf"] = tf_t_loop
         Tasks["lambda"] = lambda_val
         Tasks["task_type"] = task_type
@@ -800,13 +733,13 @@ for i_round in range(0, n_rounds):
 
         assigned_tasks = []
 
-    plotMapAllocation_stage2(Xfinal, na, colors, "Planned Path")
+    plotMapAllocation_stage2(Xfinal, agent_number, colors, "Planned Path")
     # plt.legend(legendUnq(plt.gca()))
     plt.draw()
     plt.pause(0.00001)
 
     # Update position and velocity of each agent
-    for i in range(na):
+    for i in range(agent_number):
         if Xfinal[i] is None or len(Xfinal[i][0]) == 0:
             tmp = int(p_GCAA[i] - 1)
             if tmp not in completed_tasks_Store and tmp:
@@ -851,7 +784,7 @@ for i_round in range(0, n_rounds):
                 pos_t = np.vstack((pos_t, pos_t_initial[ind2]))
                 pos_t = np.vstack((pos_t, pos_t_initial[ind2]))
                 v_t = np.vstack((v_t, [0, 0]))
-                nt += 1
+                target_number += 1
                 tf_t = np.append(tf_t, simu_time * (1.95 + 0.05 * np.random.rand()))
                 tf_t_loop = np.copy(tf_t)
                 task_type = np.append(task_type, 0)
@@ -867,7 +800,7 @@ for i_round in range(0, n_rounds):
 
                 Tasks["Pos"] = pos_t
                 Tasks["Speed"] = v_t
-                Tasks["N"] = nt
+                Tasks["N"] = target_number
                 Tasks["tf"] = tf_t_loop
                 Tasks["lambda"] = lambda_val
                 Tasks["task_type"] = task_type
@@ -895,7 +828,7 @@ for i_round in range(0, n_rounds):
         Agents["kdrag"] = kdrag
         Agents["v_a"] = v_a_loop
 
-        Tasks["prob_a_t"] = np.random.rand(na_new, nt)
+        Tasks["prob_a_t"] = np.random.rand(na_new, target_number)
 
         n_rounds_loop = n_rounds
 
@@ -908,7 +841,7 @@ plt.ylim([0, map_width])
 plt.xlabel("x [m]")
 plt.ylabel("y [m]")
 plt.title("Stage 2: Static Target Exploration", fontsize=15)
-for i in range(na):
+for i in range(agent_number):
     plt.plot(
         pos_a_loop[i, 0],
         pos_a_loop[i, 1],

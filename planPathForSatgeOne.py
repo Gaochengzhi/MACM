@@ -3,7 +3,7 @@ from scipy.spatial import ConvexHull
 from matplotlib.path import Path
 
 
-def findStrips(x, y, sidelap, imageWidth, imageLength):
+def findStripsForAgent(x, y, agents):
     points = np.column_stack((x, y))
     hull = ConvexHull(points)
     x = x[hull.vertices]
@@ -11,6 +11,10 @@ def findStrips(x, y, sidelap, imageWidth, imageLength):
     x = np.append(x, x[0])
     y = np.append(y, y[0])
 
+    agents = sorted(agents, key=lambda k: k["id"])
+    agentDetectRanges = [agent["certainRadius"] for agent in agents]
+
+    # Assuming the areaWidth is to be calculated the same way
     areaWidth = max(x) - min(x)
     thetamin = 0
     for i in range(1, 361):
@@ -34,16 +38,17 @@ def findStrips(x, y, sidelap, imageWidth, imageLength):
 
     areaWidth = max(x) - min(x)
     areaLength = max(y) - min(y)
-    numberOfLanes = np.ceil(areaWidth / (imageWidth * (1 - sidelap)))
-    laneDist = areaWidth / numberOfLanes
 
-    lanemin = []
-    lanemax = []
-    # debug here
+    # Calculating the number of lanes based on the agentDetectRanges
+    numberOfLanes = len(agentDetectRanges)
 
-    for i in range(1, int(numberOfLanes) + 1):
-        xi = min(x) + laneDist * i - laneDist / 2
-        delta = areaLength / imageLength
+    # Determine paths for each agent
+    agentPaths = {}
+    for index, agentRange in enumerate(agentDetectRanges):
+        laneDist = areaWidth / (numberOfLanes - index)
+
+        xi = min(x) + laneDist - laneDist / 2
+        delta = areaLength / agentRange
 
         k = 0
         miny = min(y) + k * delta
@@ -51,7 +56,7 @@ def findStrips(x, y, sidelap, imageWidth, imageLength):
             np.column_stack((x[hull.vertices], y[hull.vertices]))
         ).contains_point((xi, miny)):
             miny = min(y) + k * delta
-            k = k + 1
+            k += 1
 
         k = 0
         maxy = max(y) - k * delta
@@ -59,25 +64,8 @@ def findStrips(x, y, sidelap, imageWidth, imageLength):
             np.column_stack((x[hull.vertices], y[hull.vertices]))
         ).contains_point((xi, maxy)):
             maxy = max(y) - k * delta
-            k = k + 1
+            k += 1
 
-        lanemin.append([xi, miny])
-        lanemax.append([xi, maxy])
+        agentPaths[agents[index]["id"]] = [(xi, miny), (xi, maxy)]
 
-    lanemin = np.array(lanemin)
-    lanemax = np.array(lanemax)
-
-    lmin = np.matmul(lanemin, R)
-    lmax = np.matmul(lanemax, R)
-
-    V = np.zeros((int(numberOfLanes * 2 + 1), 2))
-    for i in range(int(numberOfLanes * 2)):
-        if i == 0:
-            V[i, :] = [0, 0]
-        elif (i + 1) % 2 == 0:
-            V[i, :] = lmin[i // 2 - 1, :]
-        else:
-            V[i, :] = lmax[(i - 1) // 2 - 1, :]
-    lmin = lmin[np.argsort(lmin[:, 0])]
-    lmax = lmax[np.argsort(lmax[:, 0])]
-    return lmin, lmax, V, laneDist
+    return agentPaths

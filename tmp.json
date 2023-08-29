@@ -1,0 +1,152 @@
+agents={'agents': [
+        {'id': 'agent1', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611049.1461001425,
+                4235287.722198918
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        },
+        {'id': 'agent2', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611155.1074716416,
+                4235459.598280381
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        },
+        {'id': 'agent3', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611268.1258682846,
+                4235642.921305303
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        },
+        {'id': 'agent4', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611372.660840095,
+                4235812.483675783
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        },
+        {'id': 'agent5', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611474.3644204475,
+                4235977.4533493
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        },
+        {'id': 'agent6', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611576.0614415803,
+                4236142.412383346
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        },
+        {'id': 'agent7', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611687.639109091,
+                4236323.398454016
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        },
+        {'id': 'agent8', 'detectRadius': 300, 'detectAngl': [
+                0,
+                180
+            ], 'position': [
+                -2611793.559976214,
+                4236495.208834806
+            ], 'sailViteLimit': 20, 'threatRadius': 100, 'certainRadiusLimit': 10, 'velocity': [
+                0,
+                0
+            ], 'newControl': [
+                0,
+                0
+            ], 'targets': [], 'targetsWayPoints': [], 'wayPoints': [], 'goals': [], 'path': [], 'vmax': 20
+        }
+    ], 'taskArea': array([
+        [
+            -2610770.66662775,
+            4233023.79465846
+        ],
+        [
+            -2614180.05528798,
+            4230919.11508636
+        ],
+        [
+            -2615771.21282776,
+            4232088.21761632
+        ],
+        [
+            -2617038.48797029,
+            4234138.55755924
+        ],
+        [
+            -2617246.07114607,
+            4236097.81263065
+        ],
+        [
+            -2613953.58567639,
+            4238130.28669875
+        ],
+        [
+            -2612345.28664402,
+            4237066.73385977
+        ],
+        [
+            -2611121.86731269,
+            4235082.42138131
+        ],
+        [
+            -2610770.66662775,
+            4233023.79465846
+        ]
+    ]), 'forbidArea': []
+}
