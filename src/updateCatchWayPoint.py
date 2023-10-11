@@ -23,11 +23,9 @@ def calculate_path_length(points):
 def updateCatchWayPoint(
     agent, targets, forbiddenAreas, taskArea, arrive_distance, centralPoints
 ):
-    # agent["targetsWayPoints"] = []
-
     for target in targets:
         center = target["position"]
-        radius = target["certainRadius"] - arrive_distance
+        radius = target["certainRadius"]
         angle_range = target["angle"]
         num_points = 6
 
@@ -59,23 +57,12 @@ def updateCatchWayPoint(
         )
         interplotLineEnd = []
 
-        if len(agent["goals"]) != 0:
-            interplotLineEnd = fillbetween(
-                best_path[-1],
-                agent["position"],
-                forbiddenAreas,
-                taskArea,
-                centralPoints,
-                # arrive_distance,
-            )
-
         if len(interplotLineStart) > 0 or len(interplotLineEnd) > 0:
             if len(interplotLineStart) > 0 and len(interplotLineEnd) > 0:
                 combined_array = np.concatenate(
                     (
                         interplotLineStart,
                         best_path,
-                        interplotLineEnd,
                     ),
                     axis=0,
                 )
@@ -89,10 +76,7 @@ def updateCatchWayPoint(
                 )
             else:
                 combined_array = np.concatenate(
-                    (
-                        best_path,
-                        interplotLineEnd,
-                    ),
+                    (best_path,),
                     axis=0,
                 )
         else:

@@ -1,9 +1,10 @@
-# convexWdith along axisCut
 import numpy as np
 from shapely.geometry import Polygon, Point, box
 from scipy.optimize import minimize
 from shapely import affinity
 from scipy.interpolate import splprep, splev
+from fillBetween import isInsideConvex
+import shapely.ops as ops
 
 
 def is_inside_polygon(polygon, point, margin=0):
@@ -26,8 +27,10 @@ def filter_waypoints(interpolated_waypoints, forbiddenAreas, taskArea):
 
 def smoothAndAvoidObstacles(wayPoints, agentPos, forbiddenAreas, taskArea):
     # First, interpolate the waypoints
-    tck, u = splprep(wayPoints.T, u=None, s=0, k=2)
-    u_new = np.linspace(u.min(), u.max(), 20)
+    if len(wayPoints) < 4:
+        return wayPoints
+    tck, u = splprep(wayPoints.T)
+    u_new = np.linspace(u.min(), u.max(), 100)
     x_new, y_new = splev(u_new, tck)
     interpolated_waypoints = np.column_stack([x_new, y_new])
     filtered = filter_waypoints(interpolated_waypoints, forbiddenAreas, taskArea)
@@ -41,7 +44,7 @@ def computeAngle(areaCenter, agentCenter):
     )
 
 
-def rotate_points(points, center, angle, clockwise=True):
+def rotateCordinate(points, center, angle, clockwise=True):
     rotation_matrix = np.array(
         [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
     )
@@ -95,7 +98,7 @@ def find_central_point(convex_area):
     return centroid
 
 
-def minimal_squares_centers(points, detectRadius):
+def get_minimal_squares_centers(points, detectRadius):
     poly = Polygon(points)
     min_squares = float("inf")
     optimal_centers = []
@@ -109,15 +112,7 @@ def minimal_squares_centers(points, detectRadius):
         for x in np.arange(minx, maxx, edge_size):
             for y in np.arange(miny, maxy, edge_size):
                 center = Point(x + detectRadius, y + detectRadius)
-                # if rotated_poly.contains(center):
                 centers.append([center.x, center.y])
-                # else move point to the inside of the polygon and squere overlap
-                # else:
-                #     center = rotated_poly.buffer(0).intersection(
-                #         box(x, y, x + edge_size / 2, y + edge_size / 2).buffer(0)
-                #     )
-                #     if center:
-                #         centers.append([center.centroid.x, center.centroid.y])
         num_squares = len(centers)
         if num_squares < min_squares:
             min_squares = num_squares
@@ -178,32 +173,33 @@ def minimal_turning_path(waypoints, agent_position, alpha=0.7):
     return sorted_waypoints[1:]
 
 
-def pathPlan(StripsVex, agents, detectRadius):
+def genWayPointInStrips(StripsVex, agents, detectRadius):
     agentPath = []
     for i in range(len(StripsVex)):
-        tmp = minimal_squares_centers(StripsVex[i], detectRadius[i])
+        tmp = get_minimal_squares_centers(StripsVex[i], detectRadius[i])
         sorted_waypoints = minimal_turning_path(tmp, agents[i]["position"])
         agentPath.append(sorted_waypoints)
-
     return agentPath
 
 
 def divide_into_stripes(p_taskArea, agents, detectRadius, detectVelocity):
+    """
+    return the stripes convex of the task area, and return the waypoints
+    """
     p_agent = [agent["position"] for agent in agents]
     areaCenter = find_central_point(p_taskArea)
     agentCenter = find_central_point(p_agent)
     angles = computeAngle(areaCenter, agentCenter)
-    rotated_taskArea = rotate_points(p_taskArea, areaCenter, angles, clockwise=False)
+    rotated_taskArea = rotateCordinate(p_taskArea, areaCenter, angles, clockwise=False)
     topVex = np.max(rotated_taskArea[:, 1])
     bottomVex = np.min(rotated_taskArea[:, 1])
     convexHeight = topVex - bottomVex
 
     stripHeight = detectRadius / np.sum(detectRadius) * convexHeight
-    stripHeight = stripHeight / np.mean(detectVelocity) * detectVelocity
+    # stripHeight = stripHeight / np.mean(detectVelocity) * detectVelocity
 
     # topPoint = np.max(rotated_taskArea, axis=0)
     topPoint = np.array(rotated_taskArea[np.argmax(rotated_taskArea[:, 1])])
-    # StripsVex = len(stripHeight),n, 2 list
     StripsVex = [[] for i in range(len(stripHeight))]
     for i in range(len(stripHeight)):
         bias = 0.2 * stripHeight[i]
@@ -244,8 +240,10 @@ def divide_into_stripes(p_taskArea, agents, detectRadius, detectVelocity):
             ]
             for point in convexPoints:
                 StripsVex[i].append(point)
-    rawres = pathPlan(StripsVex, agents, detectRadius)
+    rawres = genWayPointInStrips(StripsVex, agents, detectRadius)
     res = []
     for Strips in rawres:
-        res.append(rotate_points(np.array(Strips), areaCenter, angles, clockwise=True))
+        res.append(
+            rotateCordinate(np.array(Strips), areaCenter, angles, clockwise=True)
+        )
     return res

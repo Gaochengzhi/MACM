@@ -22,7 +22,7 @@ def isInsideConvex(point, polygon):
 
         F = (dx - dx2) * dy - dx * (dy - dy2)
         if 0.0 == F and dx * dx2 <= 0 and dy * dy2 <= 0:
-            return 2
+            return True
 
         if (dy >= 0 and dy2 < 0) or (dy2 >= 0 and dy < 0):
             if F > 0:
@@ -85,23 +85,21 @@ def fillbetween(
     forbiddenAreas,
     taskArea,
     forbidArea_center,
-    mini_distances=300,
-    push_distances=80,
+    mini_distance=200,
+    push_distance=150,
 ):
-    mini_distance = 100
-    push_distance = 200
     max_iterations = 30  # Set a maximum number of iterations for the while loop
     iteration_count = 0
     if distance(start, end) < mini_distance:
         return [end]
-
     # return [end]
-
     num_points = int(distance(start, end) / mini_distance)
     points = np.linspace(start, end, num_points, endpoint=False)
+    interplot_points = [end]
 
     for i, forbidArea in enumerate(forbiddenAreas):
         forbidArea = np.array(forbidArea).tolist()
+        lenForbidArea = len(forbidArea)
         interplot_points = [start]
         a = None
         b = None
@@ -125,32 +123,68 @@ def fillbetween(
         if a is not None and b is not None:
             next_point = min(forbidArea, key=lambda x: distance(x, a))
             adjusted_next_point = pushPoint(
-                forbidArea_center, push_distance, i, next_point
+                forbidArea_center[i], push_distance, next_point
             )
             interplot_points.append(adjusted_next_point)
-            while islinePolygonIntersect(
-                adjusted_next_point, b, forbidArea
-            ) or islinePolygonIntersect(adjusted_next_point, b, forbidArea):
+            distance_init = distance(a, adjusted_next_point)
+            # clockwise loop & counterclockwise loop
+            interplot_points_cw, interplot_points_ccw = (
+                interplot_points.copy(),
+                interplot_points.copy(),
+            )
+            next_point_cw, next_point_ccw = next_point, next_point
+            adjusted_next_point_cw, adjusted_next_point_ccw = (
+                adjusted_next_point,
+                adjusted_next_point,
+            )
+            distance_cw, distance_ccw = distance_init, distance_init
+            while islinePolygonIntersect(adjusted_next_point_cw, b, forbidArea):
                 iteration_count += 1
                 if iteration_count > max_iterations:
-                    print("Max iterations reached")
-                    return [end]
-                interplot_points.append(adjusted_next_point)
-                next_point = forbidArea[
-                    (forbidArea.index(next_point) - 1) % len(forbidArea)
+                    print("Max iterations reached1")
+                    distance_cw = 1e20
+                    break
+                interplot_points_cw.append(adjusted_next_point_cw)
+                next_point_cw = forbidArea[
+                    (forbidArea.index(next_point_cw) + 1) % lenForbidArea
                 ]
-                adjusted_next_point = pushPoint(
-                    forbidArea_center, push_distance, i, next_point
+                distance_cw += distance(adjusted_next_point_cw, next_point_cw)
+                adjusted_next_point_cw = pushPoint(
+                    forbidArea_center[i], push_distance, next_point_cw
                 )
-            adjusted_next_point = pushPoint(
-                forbidArea_center, push_distance, i, next_point
+            adjusted_next_point_cw = pushPoint(
+                forbidArea_center[i], push_distance, next_point_cw
             )
-            interplot_points.append(adjusted_next_point)
 
+            interplot_points_cw.append(adjusted_next_point_cw)
+            iteration_count = 0
+
+            while islinePolygonIntersect(adjusted_next_point_ccw, b, forbidArea):
+                iteration_count += 1
+                if iteration_count > max_iterations:
+                    print("Max iterations reached2")
+                    distance_ccw = 1e20
+                    break
+                interplot_points_ccw.append(adjusted_next_point_ccw)
+                next_point_ccw = forbidArea[
+                    (forbidArea.index(next_point_ccw) - 1) % lenForbidArea
+                ]
+                distance_ccw += distance(adjusted_next_point_ccw, next_point_ccw)
+                adjusted_next_point_ccw = pushPoint(
+                    forbidArea_center[i], push_distance, next_point_ccw
+                )
+            adjusted_next_point_ccw = pushPoint(
+                forbidArea_center[i], push_distance, next_point_ccw
+            )
+            interplot_points_ccw.append(adjusted_next_point_ccw)
+            if distance_cw < distance_ccw:
+                interplot_points = interplot_points_cw
+            else:
+                interplot_points = interplot_points_ccw
             interplot_points.append(b)
             next_point_index = None
             for i in range(len(points)):
-                if distance(points[i], b) < 1e-3:
+                if distance(points[i], b) < 1e-5:
                     next_point_index = i
                     break
             for i in range(next_point_index + 1, len(points)):
@@ -161,8 +195,8 @@ def fillbetween(
     return interplot_points
 
 
-def pushPoint(forbidArea_center, push_distance, i, closest_vertex):
-    vectorCenter = closest_vertex - forbidArea_center[i]
+def pushPoint(forbidArea_center, push_distance, closest_vertex):
+    vectorCenter = closest_vertex - forbidArea_center
     adjusted_next_point = closest_vertex + (
         push_distance * vectorCenter / np.linalg.norm(vectorCenter)
     )

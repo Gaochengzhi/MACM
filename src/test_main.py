@@ -1,12 +1,17 @@
 import numpy as np
+import copy
 import warnings
 import math
+import random
+
+# Start listener in a separate thread
+
 
 warnings.filterwarnings("ignore")
 import matplotlib.pyplot as plt
 from getControls import getControls
 from inSensorRange import inSensorRange
-from divdeStrip import divide_into_stripes, smoothAndAvoidObstacles
+from divdeStrip import divide_into_stripes, smoothAndAvoidObstacles, find_central_point
 from fillBetween import fillbetween, distance
 
 from addTargets import addTargets
@@ -17,7 +22,10 @@ from updateCatchWayPoint import updateCatchWayPoint
 
 from recieveAndSendInfo import getNewTarget
 from transCoordinate import transform_coordinates_for_plot
-from allocateTargetForSearcher import allocateTargetForSearcher
+from allocateTargetForSearcher import (
+    allocateTargetForSearcher,
+    deleteGoalsBetweenPosAndAgent,
+)
 import threading
 import time
 
@@ -34,64 +42,25 @@ def inCatchRange(agent, target):
     return distance
 
 
-def interpolate_line_segment(point1, point2, max_distance=10.0):
-    dis = distance(point1, point2)
-    num_points = math.ceil(dis / max_distance)
-
-    if num_points < 2:
-        return np.array([point1, point2])
-
-    x_values = np.linspace(point1[0], point2[0], num_points)
-    y_values = np.linspace(point1[1], point2[1], num_points)
-
-    return np.column_stack((x_values, y_values))
-
-
-def turnForbidenAreaIntoPoints(forbidAreaRaw):
-    forbidAreaPointsList = []
-
-    for area in forbidAreaRaw:
-        area = np.array(area)
-        edge_points = []
-
-        for i in range(len(area)):
-            point1 = area[i]
-            point2 = area[(i + 1) % len(area)]
-
-            interpolated_points = interpolate_line_segment(point1, point2)
-            edge_points.append(interpolated_points)
-
-        edge_points = np.vstack(edge_points)
-        forbidAreaPointsList.append(edge_points)
-
-    return forbidAreaPointsList
-
-
-def addDetectedTarget(agent, targetSearched, fakeTargets):
+def findTargets(agent, targetSearched, fakeTargets):
     targetsGet = getNewTarget(agent, targetSearched, fakeTargets)
     if len(targetsGet) > 0:
         for target in targetsGet:
-            newTarget = target
+            target["allocatedTime"] -= 1
+            newTarget = copy.deepcopy(target)
             targetSearched.append(target)
             agent["targets"].append(newTarget)
-
+            updateCatchWayPoint(
+                agent,
+                [newTarget],
+                forbidArea,
+                taskArea,
+                arrive_distance + 100,
+                centralPoints,
+            )
+            # deleteGoalsBetweenPosAndAgent(agent, newTarget["position"])
         return True
     return False
-
-
-def deleteGoalsBetweenPosAndAgent(agent, controlPos):
-    position = agent["position"]
-    goals = agent["goals"]
-    dist_to_control = distance(position, controlPos)
-    filtered_goals = [
-        goal
-        for goal in goals
-        if distance(position, goal) >= dist_to_control
-        or np.array_equal(goal, goals[-1])
-        or np.array_equal(goal, goals[0])
-    ]
-
-    return filtered_goals
 
 
 class SetRestCheckTimer:
@@ -118,7 +87,7 @@ class SetRestCheckTimer:
 def TargetWayPointFinished(agent, targetId):
     for targetWayPoint in agent["targetsWayPoints"]:
         if targetWayPoint["id"] == targetId:
-            if len(targetWayPoint["targetPath"]) < 2:
+            if len(targetWayPoint["targetPath"]) < 5:
                 return True
     return False
 
@@ -130,6 +99,7 @@ def updateTargetRestCheck(agent, targetId, globalTargets):
                 target["restCheck"] -= 1
                 restTime = target["restTime"]
                 restTimer = SetRestCheckTimer(target, agent, restTime)
+                print("targetId: ", targetId, " restTime: ", restTime)
                 restTimer.start()
                 target["allocated"] = False
             elif target["restCheck"] == 1:
@@ -176,17 +146,6 @@ for area in forbidArea:
 for i in range(len(allAgents)):
     allAgents[i]["position"] = p_agent[i]
 
-forbidArea.append(
-    np.array(
-        [
-            [600, 4000],
-            [600, 8000],
-            [630, 8000],
-            [630, 4000],
-            [600, 4000],
-        ]
-    )
-)
 for i in range(len(forbidArea)):
     if i == len(forbidArea) - 1:
         forbidArea[i][0], forbidArea[i][1] = (
@@ -194,14 +153,13 @@ for i in range(len(forbidArea)):
             forbidArea[i][1] - 5,
         )
 
-forbidAreaPoints = turnForbidenAreaIntoPoints(forbidArea)
-
-
+taskCenter = find_central_point(taskArea)
 centralPoints = calculate_central_points(forbidArea)
 
 ## paramters
-n_searcher = len(allAgents) - 5
-arrive_distance = 10
+n_searcher = len(allAgents)
+arrive_distance = 20
+fillDistance = 100
 # get n_searcher biggest agent beaed on detectRadius
 detectAgents = sorted(allAgents, key=lambda x: x["detectRadius"], reverse=True)[
     :n_searcher
@@ -215,25 +173,38 @@ detectVelocity = np.array([agent["sailViteLimit"] for agent in detectAgents])
 detectRadius = np.append(detectRadius[-1], detectRadius[:-1])
 detectVelocity = np.append(detectVelocity[-1], detectVelocity[:-1])
 
-tmpforbiden = []
-for area in forbidAreaPoints:
-    for point in area:
-        tmpforbiden.append(
-            {
-                "id": "das" + str(point[0]),
-                "position": point,
-                "velocity": [0, 0],
-                "certainRadiusLimit": 80,
-            }
-        )
 
 wayPoints = divide_into_stripes(p_taskArea, detectAgents, detectRadius, detectVelocity)
+
 
 for i in range(len(detectAgents)):
     detectAgents[i]["wayPoints"] = smoothAndAvoidObstacles(
         wayPoints[i], detectAgents[i]["position"], forbidArea, p_taskArea
     )
+# plot all wayPoints
+plt.plot(taskArea[:, 0], taskArea[:, 1], "b")
+plt.fill(taskArea[:, 0], taskArea[:, 1], alpha=0.1, color="blue")
+for area in forbidArea:
+    plt.plot(area[:, 0], area[:, 1], "r")
+    plt.fill(area[:, 0], area[:, 1], alpha=0.1, color="red")
+for i in range(len(detectAgents)):
+    # plt detectAgents[i]["wayPoints"]
+    for wayPoint in detectAgents[i]["wayPoints"]:
+        plt.plot(wayPoint[0], wayPoint[1], "o", color=colorline[i], markersize=2)
+        # plt.pause(0.03)
 
+
+# plt all fakeTargets
+for fakeTarget in fakeTargets:
+    plt.plot(fakeTarget["position"][0], fakeTarget["position"][1], "x", color="red")
+    plt.text(
+        fakeTarget["position"][0] + 50,
+        fakeTarget["position"][1] + 20,
+        str(fakeTarget["id"]),
+        color="red",
+    )
+# plt.show()
+# exit()
 init_test_goals = [
     {
         "id": agent["id"],
@@ -245,7 +216,7 @@ init_test_goals = [
     }
     for agent in detectAgents
 ]
-dt = 4
+dt = 2
 targetSearched = []
 agents_count = len(allAgents)
 Finished = False
@@ -261,56 +232,60 @@ while not Finished:
             catchAgents.append(agent)
 
     # catcher algorithem
-    freeAgents = [agent for agent in catchAgents if len(agent["targetsWayPoints"]) == 0]
-    # freeAgents = [agent for agent in catchAgents]
+    freeAgents = [agent for agent in catchAgents if len(agent["targets"]) == 0]
     freeTargets = [
         target
         for target in targetSearched
-        if target["allocated"] > 0 and not target["finished"]
+        if target["allocatedTime"] > 0 and not target["finished"]
     ]
 
     if len(freeTargets) > 0 and len(freeAgents) > 0:
-        allocateTargetForSearcher(freeAgents, freeTargets)
+        allocateTargetForSearcher(
+            freeAgents, freeTargets, forbidArea, taskArea, centralPoints
+        )
 
     # Stage2 get and catch target
     for agent in allAgents:
-        if addDetectedTarget(agent, targetSearched, fakeTargets):
+        if findTargets(agent, targetSearched, fakeTargets):
             pass
-
-        agent["type"] = 0
-        for target in agent["targets"]:
-            if inCatchRange(agent, target):
-                agent["type"] = 1
-            # else:
-            if target["allocated"]:
-                if TargetWayPointFinished(agent, target["id"]):
-                    updateTargetRestCheck(agent, target["id"], targetSearched)
-                    agent["targets"].remove(target)
-                    agent["targetsWayPoints"] = [
-                        targetWayPoint
-                        for targetWayPoint in agent["targetsWayPoints"]
-                        if targetWayPoint["id"] != target["id"]
-                    ]
-            else:
+        for target in targetSearched:
+            if (
+                inSensorRange(agent, target["position"])
+                and target["id"] not in [targ["id"] for targ in agent["targets"]]
+                and not target["finished"]
+                and target["allocatedTime"] > 0
+                and agent["id"] not in target["forbidenAgents"]
+            ):
+                target["allocatedTime"] -= 1
+                newTarget = copy.deepcopy(target)
+                agent["targets"].append(newTarget)
                 updateCatchWayPoint(
                     agent,
-                    [target],
+                    [newTarget],
                     forbidArea,
                     taskArea,
                     arrive_distance + 100,
                     centralPoints,
                 )
-                if len(agent["goals"]) != 0:
-                    agent["goals"] = deleteGoalsBetweenPosAndAgent(
-                        agent, target["position"]
-                    )
-                target["allocated"] = True
+                deleteGoalsBetweenPosAndAgent(agent, newTarget["position"])
+
+        agent["type"] = 0
+        for target in agent["targets"]:
+            # slow down
+            if inCatchRange(agent, target):
+                agent["type"] = 1
+            if TargetWayPointFinished(agent, target["id"]):
+                updateTargetRestCheck(agent, target["id"], targetSearched)
+                agent["targets"].remove(target)
+                agent["targetsWayPoints"] = [
+                    targetWayPoint
+                    for targetWayPoint in agent["targetsWayPoints"]
+                    if targetWayPoint["id"] != target["id"]
+                ]
                 # break
 
     # cooperate obstacle avoidence
     for i in range(agents_count):
-        # obstacles_for_agent_i = deep copy tmpforbiden
-        # obstacles_for_agent_i = tmpforbiden
         obstacles_for_agent_i = []
 
         for k in range(agents_count):
@@ -322,6 +297,8 @@ while not Finished:
                     obstacles_for_agent_i.append(allAgents[k])
 
         for k in range(len(targetSearched)):
+            if targetSearched[k]["finished"]:
+                continue
             if inSensorRange(allAgents[i], targetSearched[k]["position"]):
                 if all(
                     targetSearched[k]["id"] != obstacle["id"]
@@ -329,14 +306,23 @@ while not Finished:
                 ):
                     obstacles_for_agent_i.append(targetSearched[k])
         if len(allAgents[i]["goals"]) > 0 or len(allAgents[i]["targetsWayPoints"]) > 0:
-            # allAgents[i]["newControl"] = [0, 0]
-            allAgents[i]["newControl"] = getControls(
-                allAgents[i], obstacles_for_agent_i, dt, forbidArea
-            )
+            # agentGoal = [0, 0] + allAgents[i]["position"]
+            if len(allAgents[i]["targetsWayPoints"]) != 0:
+                agentGoal = allAgents[i]["targetsWayPoints"][0]["targetPath"][0]
+            elif len(allAgents[i]["goals"]) > 0:
+                agentGoal = allAgents[i]["goals"][0]
+            else:
+                # randomPos = [random.randint(-30, 30), random.randint(20, 30)]
+                # agentGoal = allAgents[i]["position"] + randomPos
+                pass
+
         else:
-            allAgents[i]["newControl"] = [0, 0]
-        # delete obstacles_for_agent_i
-        # del obstacles_for_agent_i
+            # agentGoal = taskArea[i % len(taskArea)]
+            agentGoal = allAgents[i]["position"]
+
+        allAgents[i]["newControl"] = getControls(
+            allAgents[i], obstacles_for_agent_i, dt, forbidArea, taskArea, agentGoal
+        )
 
     # Stage3 update allAgents position
     for agent in allAgents:
@@ -346,7 +332,7 @@ while not Finished:
             targetWaypointObj = agent["targetsWayPoints"][0]
             if len(targetWaypointObj["targetPath"]) > 0:
                 # agent["position"] = targetWaypointObj["targetPath"][0]
-                agent["position"] = controlPos
+                # agent["position"] = controlPos
                 if (
                     distance(agent["position"], targetWaypointObj["targetPath"][0])
                     < arrive_distance
@@ -363,7 +349,7 @@ while not Finished:
                     forbidArea,
                     taskArea,
                     centralPoints,
-                    arrive_distance,
+                    fillDistance,
                 )
                 if not np.array_equal(agent["velocity"], np.array([0, 0])):
                     # agent["goals"] = deleteGoalsBetweenPosAndAgent(agent, controlPos)
@@ -371,9 +357,9 @@ while not Finished:
                 agent["wayPoints"] = agent["wayPoints"][1:]
         elif len(agent["goals"]) > 0:
             # agent["position"] = agent["goals"][0]
-            agent["position"] = controlPos
             if distance(agent["position"], agent["goals"][0]) < arrive_distance:
                 agent["goals"] = agent["goals"][1:]
+        agent["position"] = controlPos
         agent["path"].append(agent["position"])
     plt.clf()
     plt.plot(taskArea[:, 0], taskArea[:, 1], "b")
@@ -382,15 +368,6 @@ while not Finished:
         plt.plot(area[:, 0], area[:, 1], "r")
         plt.fill(area[:, 0], area[:, 1], alpha=0.1, color="red")
 
-    # plt.xlim([0, 7250])
-    # plt.ylim([0, 7250])
-    # plot all wayPoints
-    # for i in range(len(detectAgents)):
-    #     for wayPoint in detectAgents[i]["wayPoints"]:
-    #         plt.plot(wayPoint[0], wayPoint[1], "o", color=colorline[i], markersize=2)
-    # plot forbidAreaPoints
-    # for area in forbidAreaPoints:
-    #     plt.plot(area[:, 0], area[:, 1], "*")
     for i in range(len(allAgents)):
         plt.plot(
             allAgents[i]["position"][0],
@@ -407,8 +384,8 @@ while not Finished:
                 np.array(allAgents[i]["goals"])[:, 1],
                 ".",
                 color=colorline[i],
-                markersize=5,
-                alpha=0.99,
+                markersize=2,
+                alpha=0.59,
                 label="goals",
             )
         if len(allAgents[i]["targetsWayPoints"]) > 0:
@@ -417,8 +394,8 @@ while not Finished:
                 np.array(allAgents[i]["targetsWayPoints"][0]["targetPath"])[:, 1],
                 ".",
                 color=colorline[i],
-                markersize=5,
-                alpha=0.99,
+                markersize=2,
+                alpha=0.59,
                 label="targetsWayPoints",
             )
     # plot all path in agent
@@ -432,67 +409,68 @@ while not Finished:
             linewidth=1,
         )
 
-        plt.text(
-            allAgents[i]["position"][0] + 50,
-            allAgents[i]["position"][1] + 150,
-            "goals:" + str(len(allAgents[i]["goals"])),
-            color=colorline[i],
-        )
-        plt.text(
-            allAgents[i]["position"][0] + 50,
-            allAgents[i]["position"][1] - 150,
-            "t:" + str(len(allAgents[i]["targetsWayPoints"])),
-            color=colorline[i],
-        )
-        if len(allAgents[i]["targetsWayPoints"]) > 0:
-            plt.text(
-                allAgents[i]["position"][0] + 50,
-                allAgents[i]["position"][1] - 300,
-                "twp:" + str(len(allAgents[i]["targetsWayPoints"][0]["targetPath"])),
-                color=colorline[i],
-            )
-        # plt.plot(
-        #     np.array(allAgents[i]["path"])[:, 0],
-        #     np.array(allAgents[i]["path"])[:, 1],
-        #     color=(0, 1, 0, 0.3),
-        #     linewidth=allAgents[i]["detectRadius"] / 25,
+        # plt.text(
+        #     allAgents[i]["position"][0] + 50,
+        #     allAgents[i]["position"][1] + 150,
+        #     "goals:" + str(len(allAgents[i]["goals"])),
+        #     color=colorline[i],
         # )
+        # plt.text(
+        #     allAgents[i]["position"][0] + 50,
+        #     allAgents[i]["position"][1] - 150,
+        #     "t:" + str(len(allAgents[i]["targetsWayPoints"])),
+        #     color=colorline[i],
+        # )
+        # if len(allAgents[i]["targetsWayPoints"]) > 0:
+        #     plt.text(
+        #         allAgents[i]["position"][0] + 100,
+        #         allAgents[i]["position"][1] + 100,
+        #         "tid:" + str((allAgents[i]["targetsWayPoints"][0]["id"])),
+        #         color=colorline[i],
+        #     )
+        plt.plot(
+            np.array(allAgents[i]["path"])[:, 0],
+            np.array(allAgents[i]["path"])[:, 1],
+            color=(0, 1, 0, 0.3),
+            linewidth=allAgents[i]["detectRadius"] / 25,
+        )
     for target in targetSearched:
         if not target["finished"]:
             plt.plot(target["position"][0], target["position"][1], "x", color="red")
-            # plt text target id and restime id be red restCheck be blue
-            # plt.text(
-            #     target["position"][0] + 50,
-            #     target["position"][1] + 20,
-            #     str(target["id"]),
-            #     color="red",
-            # )
             plt.text(
                 target["position"][0],
-                target["position"][1] - 50,
+                target["position"][1] - 150,
                 str(target["restCheck"]),
                 color="blue",
             )
 
     allWayPointRemoved = all(len(agent["wayPoints"]) == 0 for agent in allAgents)
 
-    # plt all wayPoints's number
-    wayPointsNumber = sum([len(agent["wayPoints"]) for agent in allAgents])
-    plt.text(9, 6000, "wayPointsNumber: " + str(wayPointsNumber))
     allTargetFinished = all([target["finished"] for target in targetSearched])
     Finished = allTargetFinished and allWayPointRemoved
-    # plt len of targetSearched and finished target put in top center
 
-    plt.text(9, 7000, "targetSearched: " + str(len(targetSearched)))
+    # top left plt bassed on dynamic axix
+    # plt.text(top, left, "targetSearched: " + str(len(targetSearched)))
     plt.text(
-        9,
-        6500,
-        "finished: "
-        + str(len([target for target in targetSearched if target["finished"]])),
+        0,
+        1,
+        "targetSearched: " + str(len(targetSearched)),
+        color="blue",
+        verticalalignment="top",
+        horizontalalignment="left",
+        transform=plt.gca().transAxes,
     )
     if Finished:
-        plt.text(0, 0, "Finished", color="red")
-        # plt.close("all")
-        # exit()
+        plt.text(
+            0,
+            0,
+            "Finished",
+            color="red",
+            verticalalignment="top",
+            horizontalalignment="left",
+            transform=plt.gca().transAxes,
+        )
 
+        plt.pause(1)
+    plt.axis("equal")
     plt.pause(0.0001)

@@ -101,7 +101,7 @@ def calculate_central_points(
     return np.array(central_points)
 
 
-def fillbetween(start, end, forbiddenAreas, forbidArea_center, mini_distance=8):
+def fillbetween(start, end, forbiddenAreas, forbidArea_center, mini_distance=0.8):
     push_distance = 0.5
     if distance(start, end) < mini_distance:
         return [end]
@@ -186,26 +186,26 @@ if __name__ == "__main__":
     forbiddenAreas = np.array(
         [
             [
-                [6, 6],
-                [6, 8],
+                [5, 4],
+                [5, 8],
                 [8, 8],
-                [8, 6],
-                [6.1, 6.1],
+                [8, 4],
+                [5.01, 4.001],
             ],
         ]
     )
     centralPoints = calculate_central_points(forbiddenAreas)
 
     path = fillbetween(start, end, forbiddenAreas, centralPoints)
+    plt.xlim(-5, 15)
+    plt.ylim(-5, 15)
+    for area in forbiddenAreas:
+        area = np.array(area)
+        plt.fill(area[:, 0], area[:, 1], "g", alpha=0.3)
     for point in path:
-        plt.xlim(-5, 15)
-        plt.ylim(-5, 15)
-        for area in forbiddenAreas:
-            area = np.array(area)
-            plt.fill(area[:, 0], area[:, 1], "g", alpha=0.3)
         plt.plot(point[0], point[1], "ro")
-        plt.pause(0.1)
-        plt.clf()
+        # plt.pause(0.1)
+        # plt.clf()
 
     plt.show()
 

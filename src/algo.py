@@ -82,12 +82,6 @@ class Algo:
                                         "spd": 40.0,
                                         "acc": -1,
                                     },
-                                    # {
-                                    #     "coord": _item,
-                                    #     "spd": 10.0,
-                                    #     "acc": -1
-                                    # }
-                                    # for _item in Algo.init_info['taskArea'] * 100
                                 ],
                             },
                         ]
