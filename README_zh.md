@@ -9,7 +9,7 @@
  git clone --depth 1 https://github.com/Gaochengzhi/MACM.git
 ```
 ### 2. 如果你想运行 Matlab 代码
-Matlab 版本代码使用 [GCAA](https://github.com/MartinBraquet/task-allocation-auctions) 优化器，位于 ./orignial_matlab_code.
+Matlab 版本代码使用 [GCAA](https://github.com/MartinBraquet/task-allocation-auctions) 优化器，位于 ./matlab_code.
 
 要运行，只需执行主函数：
 ```matlab
@@ -22,3 +22,9 @@ Python 代码使用 scipy.optimize 中的 linear_sum_assignment ，利用匈牙�
 pip3 install -r requirements.txt
 python3 test_main.py 
 ```
+
+## 修改参数
+
+预设的测试参数定义在 `src/getFakeTarget.py` 和 `src/getInitTaskInfo`中，并提供了两个版本`getInitTaskInfo1` 和 `getInitTaskInfo`
+
+可以自由定制修改区域边界和禁航区顶点的参数和目标属性。
