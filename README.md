@@ -1,4 +1,7 @@
-# Regional information acquisition multi-agent control model
+# Research on Multi-agent Collaborative Exploration Technology in Complex Marine Environments
+复杂海域下多智能体协同探查技术研究，第十八届“挑战杯”全国大学生课外学术科技作品竞赛“揭榜挂帅”专项赛，全国一等奖
+
+The 18th "Challenge Cup" National College Students Extracurricular Academic Science and Technology Works Competition "Jiebing Guashuai" Special Competition, National First Prize
 
 [中文版](./README_zh.md)
 # Intro
